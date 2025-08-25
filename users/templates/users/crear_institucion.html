@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="bg-white p-8 rounded-xl shadow-md border border-gray-200 max-w-2xl mx-auto">
+    <h2 class="text-3xl font-bold text-gray-800 mb-6">Registrar Nueva Institución</h2>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="space-y-4">
+            {% for field in form %}
+                <div>
+                    <label for="{{ field.id_for_label }}" class="block text-gray-700 font-bold mb-1">{{ field.label }}</label>
+                    {{ field|add_class:"w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-empresa-green" }}
+                    {% for error in field.errors %}
+                        <p class="text-red-500 text-sm mt-1">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="flex items-center gap-4 mt-6">
+            <button type="submit" class="w-full bg-empresa-green text-white font-bold py-3 px-4 rounded-lg hover:bg-opacity-90 transition duration-300">
+                Guardar Institución
+            </button>
+            <a href="{% url 'users:dashboard' %}" class="w-full text-center block border border-gray-300 text-gray-700 font-bold py-3 px-4 rounded-lg hover:bg-gray-50 transition duration-300">
+                Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock content %}

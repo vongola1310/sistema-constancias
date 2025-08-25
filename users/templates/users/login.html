@@ -1,0 +1,57 @@
+{% extends "base_fullscreen.html" %}
+{% load static %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center min-h-screen px-4 py-8">
+    
+    <div class="mb-8">
+        <img src="{% static 'images/logo.png' %}" alt="Logo de la Empresa" class="h-16 w-auto">
+        <br>
+         <h1 class="text-3xl font-bold text-gray-800 mt-4">
+            Plataforma de Constancias 
+        </h1>
+       
+    </div>
+
+    <div class="bg-white p-8 sm:p-10 rounded-xl shadow-lg border border-gray-200 w-full max-w-md">
+        
+        <h2 class="text-3xl font-bold text-gray-800 text-center mb-6">
+            Iniciar Sesión
+            
+        </h2>
+
+        <form method="post">
+            {% csrf_token %}
+
+            {% if error %}
+                <p class="bg-red-100 text-red-700 p-3 rounded-lg text-center mb-4">{{ error }}</p>
+            {% endif %}
+
+            <div class="mb-4">
+                <label for="username" class="block text-gray-700 font-bold mb-2">Usuario</label>
+                <input type="text" name="username" id="username" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-empresa-green" required>
+            </div>
+
+            <div class="mb-6">
+                <label for="password" class="block text-gray-700 font-bold mb-2">Contraseña</label>
+                <input type="password" name="password" id="password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-empresa-green" required>
+            </div>
+
+            <button type="submit" class="w-full bg-empresa-green text-white font-bold py-3 px-4 rounded-lg hover:bg-opacity-90 transition duration-300 flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.562-1 .468-1.563A6 6 0 1121.75 8.25z" />
+                </svg>
+                <span>Acceder</span>
+            </button>
+             <div class="text-center mt-6">
+                <p class="text-gray-600">
+                    ¿No tienes una cuenta?
+                    <a href="{% url 'users:crear_evaluador' %}" class="font-bold text-empresa-green hover:underline">
+                        Regístrate aquí
+                    </a>
+                </p>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock content %}
