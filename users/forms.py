@@ -59,3 +59,14 @@ class LoteConstanciaForm(forms.Form):
         queryset=Evaluador.objects.all(),
         label="Selecciona el Especialista que firma"
     )
+
+class WebinarUploadForm(forms.Form):
+    archivo_excel = forms.FileField(label="Selecciona el archivo Excel (.xlsx)")
+    curso_nombre = forms.CharField(label="Nombre del Evento/Webinar")
+    fecha_inicio = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), label="Fecha de Inicio")
+    fecha_termino = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), label="Fecha de Término")
+    duracion_en_horas = forms.DecimalField(max_digits=4, decimal_places=1, label="Duración (Horas)")
+    firma_especialista = forms.ModelChoiceField(
+        queryset=Evaluador.objects.all(),
+        label="Especialista que firma"
+    )

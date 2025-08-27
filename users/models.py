@@ -36,7 +36,7 @@ class Curso(models.Model):
 class Participante(models.Model):
     nombre_completo = models.CharField(max_length=255)
     email = models.EmailField(unique=True, help_text="El correo debe ser único para cada participante.")
-    titulo = models.CharField(max_length=50, blank=True, verbose_name="Título Profesional (ej. Q.F.B.)")
+    titulo = models.CharField(max_length=50, blank=True, null=True, verbose_name="Título Profesional (ej. Q.F.B.)")
     institucion = models.ForeignKey(
         Institucion, 
         on_delete=models.SET_NULL, 
@@ -72,6 +72,7 @@ class Constancia(models.Model):
     )
     fecha_emision = models.DateField(auto_now_add=True, verbose_name="Fecha de Emisión")
     codigo_verificacion = models.CharField(max_length=20, unique=True, blank=True, verbose_name="Código de Verificación")
+    es_webinar = models.BooleanField(default=False, verbose_name="¿Es de Webinar?")
 
     class Meta:
         verbose_name = "Constancia"

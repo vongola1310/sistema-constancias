@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="bg-white p-8 rounded-xl shadow-md border border-gray-200 max-w-2xl mx-auto">
+    <h2 class="text-3xl font-bold text-gray-800 mb-2">Crear Constancias de Webinar</h2>
+    <p class="text-gray-600 mb-6">Sube un archivo Excel con la lista de participantes para generar sus constancias en lote.</p>
+    
+    <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4 mb-6 text-sm">
+        <h4 class="font-bold mb-2">Instrucciones del Archivo Excel</h4>
+        <p>Asegúrate de que tu archivo `.xlsx` tenga la primera fila con exactamente estos encabezados:</p>
+        <code class="block bg-gray-100 p-2 rounded mt-2 text-xs">Nombre Completo | Email | Titulo | Institucion</code>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="space-y-4">
+        {% for field in form %}
+            <div>
+                <label for="{{ field.id_for_label }}" class="block text-gray-700 font-bold mb-1">{{ field.label }}</label>
+                {% if field.name == 'archivo_excel' %}
+                    {{ field|add_class:"block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-empresa-green hover:file:bg-green-100" }}
+                {% else %}
+                    {{ field|add_class:"w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-empresa-green" }}
+                {% endif %}
+                
+                {% for error in field.errors %}
+                    <p class="text-red-500 text-sm mt-1">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endfor %}
+        </div>
+
+        <button type="submit" class="w-full mt-6 bg-empresa-green text-white font-bold py-3 px-4 rounded-lg hover:bg-opacity-90 transition duration-300">
+            Procesar Archivo y Generar Constancias
+        </button>
+    </form>
+</div>
+{% endblock content %}

@@ -26,6 +26,12 @@ urlpatterns = [
     path('constancia/<int:pk>/pdf/', views.generar_pdf_constancia_view, name='generar_pdf'),
 
     path('historial/', views.historial_constancias_view, name='historial_constancias'),
+
+    path('webinar/subir/', views.subir_webinar_view, name='subir_webinar'),
+
+    path('historial/borrar-seleccion/', views.borrar_constancias_view, name='borrar_constancias'),
+
+
 ]
 
 

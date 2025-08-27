@@ -8,13 +8,11 @@
     <link href="{% static 'css/output.css' %}" rel="stylesheet">
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans">
-
     <header class="bg-white shadow-sm border-b border-gray-200">
         <nav class="container mx-auto px-6 py-3 flex justify-between items-center">
             <a href="{% url 'users:dashboard' %}">
                 <img src="{% static 'images/logo.png' %}" alt="Logo de la Empresa" class="h-10 w-auto">
             </a>
-
             <div class="relative">
                 <button id="profile-button" class="block h-10 w-10 rounded-full overflow-hidden border-2 border-gray-300 focus:outline-none focus:border-empresa-green">
                     {% if user.foto %}
@@ -25,12 +23,10 @@
                         </svg>
                     {% endif %}
                 </button>
-
                 <div id="profile-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 border border-gray-200">
                     <a href="{% url 'users:change_photo' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Cambiar Foto</a>
                     <a href="{% url 'users:change_signature' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Cambiar Firma</a>
                     <div class="border-t border-gray-100"></div>
-                    
                     <form action="{% url 'users:logout' %}" method="post">
                         {% csrf_token %}
                         <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
@@ -41,9 +37,8 @@
             </div>
         </nav>
     </header>
-
     <main class="container mx-auto px-6 py-8">
-         {% if messages %}
+        {% if messages %}
             <div class="mb-6 space-y-2">
             {% for message in messages %}
                 <div class="p-4 rounded-md text-white {% if message.tags == 'success' %}bg-empresa-green{% else %}bg-red-500{% endif %}">
@@ -52,22 +47,15 @@
             {% endfor %}
             </div>
         {% endif %}
-
         {% block content %}
         {% endblock content %}
     </main>
-
-
     <script>
         const profileButton = document.getElementById('profile-button');
         const profileMenu = document.getElementById('profile-menu');
-
         profileButton.addEventListener('click', () => {
-            // Alterna la clase 'hidden' para mostrar/ocultar el menú
             profileMenu.classList.toggle('hidden');
         });
-
-        // Opcional: Cierra el menú si se hace clic fuera de él
         window.addEventListener('click', (e) => {
             if (!profileButton.contains(e.target) && !profileMenu.contains(e.target)) {
                 profileMenu.classList.add('hidden');
