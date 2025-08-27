@@ -31,6 +31,10 @@ urlpatterns = [
 
     path('historial/borrar-seleccion/', views.borrar_constancias_view, name='borrar_constancias'),
 
+    path('historial/descargar-seleccion/', views.descargar_constancias_zip_view, name='descargar_constancias_zip'),
+
+    path('participante/<int:pk>/historial/', views.historial_participante_view, name='historial_participante'),
+
 
 ]
 

@@ -3,55 +3,91 @@
 {% block content %}
 <div class="bg-white p-6 sm:p-8 rounded-xl shadow-md border border-gray-200">
     
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
         <div>
             <h2 class="text-3xl font-bold text-gray-800">Historial de Constancias</h2>
-            <p class="text-gray-500 mt-1">Aquí puedes ver, descargar y eliminar los certificados emitidos.</p>
+            <p class="text-gray-500 mt-1">Aquí puedes ver, descargar y gestionar los certificados emitidos.</p>
         </div>
         <a href="{% url 'users:crear_lote' %}" class="mt-4 sm:mt-0 inline-block bg-empresa-green text-white font-bold py-2 px-4 rounded-lg hover:bg-opacity-90 transition duration-300">
             + Generar Nuevas Constancias
         </a>
     </div>
 
-    <form action="{% url 'users:borrar_constancias' %}" method="post">
+    <div class="border-b border-gray-200">
+        <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+            <a href="{% url 'users:historial_constancias' %}" 
+               class="shrink-0 border-b-2 px-1 pb-4 text-sm font-medium 
+                      {% if not filtro_activo %}
+                        border-empresa-green text-empresa-green
+                      {% else %}
+                        border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700
+                      {% endif %}">
+               Todos
+            </a>
+            <a href="{% url 'users:historial_constancias' %}?tipo=curso" 
+               class="shrink-0 border-b-2 px-1 pb-4 text-sm font-medium 
+                      {% if filtro_activo == 'curso' %}
+                        border-empresa-green text-empresa-green
+                      {% else %}
+                        border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700
+                      {% endif %}">
+               Cursos Normales
+            </a>
+            <a href="{% url 'users:historial_constancias' %}?tipo=webinar" 
+               class="shrink-0 border-b-2 px-1 pb-4 text-sm font-medium 
+                      {% if filtro_activo == 'webinar' %}
+                        border-empresa-green text-empresa-green
+                      {% else %}
+                        border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700
+                      {% endif %}">
+               Webinars
+            </a>
+        </nav>
+    </div>
+
+    <form method="post">
         {% csrf_token %}
 
-        <div id="action-bar" class="hidden bg-gray-100 ... items-center gap-4"></div>
+        <div id="action-bar" class="hidden bg-gray-100 p-3 rounded-lg my-4 items-center gap-4 border">
             <span id="selection-count" class="font-bold text-gray-700"></span>
-            <button type="submit" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition duration-300">
+            
+            <button type="submit" formaction="{% url 'users:borrar_constancias' %}" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition duration-300">
                 Eliminar Seleccionados
             </button>
-            <button type="button" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300 disabled:opacity-50" disabled title="Próximamente">
+            
+            <button type="submit" formaction="{% url 'users:descargar_constancias_zip' %}" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">
                 Descargar Seleccionados (ZIP)
             </button>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-6">
             {% for constancia in constancias %}
             <div class="bg-white rounded-lg border border-gray-200 shadow-md p-5 flex flex-col justify-between">
                 <div>
                     <div class="flex items-start justify-between">
                         <div>
                             <p class="text-sm text-gray-500">Participante:</p>
-                            <h3 class="font-bold text-lg text-gray-800 truncate">{{ constancia.participante.nombre_completo }}</h3>
+                            <a href="{% url 'users:historial_participante' constancia.participante.pk %}" class="hover:underline">
+                                <h3 class="font-bold text-lg text-gray-800 truncate" title="{{ constancia.participante.nombre_completo }}">{{ constancia.participante.nombre_completo }}</h3>
+                            </a>
                         </div>
                         <input type="checkbox" name="constancia_ids" value="{{ constancia.pk }}" class="h-5 w-5 rounded border-gray-300 text-empresa-green focus:ring-empresa-green constancia-checkbox">
                     </div>
                     
                     <p class="text-sm text-gray-500 mt-4">Curso:</p>
-                    <h4 class="font-semibold text-gray-700 truncate">{{ constancia.curso.nombre }}</h4>
+                    <h4 class="font-semibold text-gray-700 truncate" title="{{ constancia.curso.nombre }}">{{ constancia.curso.nombre }}</h4>
 
                     <p class="text-xs text-gray-400 mt-2">Emitida el {{ constancia.fecha_emision|date:"d M Y" }}</p>
                 </div>
                 <div class="mt-5">
-                    <a href="{% url 'users:generar_pdf' constancia.pk %}" class="w-full text-center block bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-700 transition duration-300">
+                    <a href="{% url 'users:generar_pdf' constancia.pk %}" target="_blank" class="w-full text-center block bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-700 transition duration-300">
                         Descargar PDF
                     </a>
                 </div>
             </div>
             {% empty %}
             <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-10 text-gray-500">
-                <p>Aún no se ha emitido ninguna constancia.</p>
+                <p>No se encontraron constancias con el filtro seleccionado.</p>
             </div>
             {% endfor %}
         </div>
@@ -67,17 +103,17 @@
         checkbox.addEventListener('change', updateActionBar);
     });
 
-   function updateActionBar() {
-    const checkedCount = document.querySelectorAll('.constancia-checkbox:checked').length;
-    
-    if (checkedCount > 0) {
-        actionBar.classList.remove('hidden');
-        actionBar.classList.add('flex'); // <--- AÑADIMOS flex cuando se muestra
-        selectionCount.textContent = `${checkedCount} seleccionado(s)`;
-    } else {
-        actionBar.classList.add('hidden');
-        actionBar.classList.remove('flex'); // <--- QUITAMOS flex cuando se oculta
+    function updateActionBar() {
+        const checkedCount = document.querySelectorAll('.constancia-checkbox:checked').length;
+        
+        if (checkedCount > 0) {
+            actionBar.classList.remove('hidden');
+            actionBar.classList.add('flex');
+            selectionCount.textContent = `${checkedCount} seleccionado(s)`;
+        } else {
+            actionBar.classList.add('hidden');
+            actionBar.classList.remove('flex');
+        }
     }
-}
 </script>
 {% endblock content %}

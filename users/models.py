@@ -73,6 +73,8 @@ class Constancia(models.Model):
     fecha_emision = models.DateField(auto_now_add=True, verbose_name="Fecha de Emisión")
     codigo_verificacion = models.CharField(max_length=20, unique=True, blank=True, verbose_name="Código de Verificación")
     es_webinar = models.BooleanField(default=False, verbose_name="¿Es de Webinar?")
+    fecha_vencimiento = models.DateField(null=True, blank=True, verbose_name="Fecha de Vencimiento")
+
 
     class Meta:
         verbose_name = "Constancia"
