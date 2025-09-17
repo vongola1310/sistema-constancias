@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block main_container %}
+<div class="px-4 sm:px-6 lg:px-8 py-8"> <div class="sm:flex sm:items-center sm:justify-between">
+        <div class="sm:flex-auto">
+            <h1 class="text-2xl font-bold leading-6 text-gray-900">Administrar Participantes</h1>
+            <p class="mt-2 text-sm text-gray-700">Una lista de todas las personas registradas en el sistema.</p>
+        </div>
+        <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+            <a href="{% url 'users:crear_participante' %}" class="inline-block bg-empresa-green text-white font-bold py-2 px-4 rounded-lg hover:bg-opacity-90 transition duration-300 shadow-sm">
+                + Registrar Nuevo Participante
+            </a>
+        </div>
+    </div>
+
+    <div class="mt-8 flow-root">
+        <div class="space-y-4">
+            {% for p in participantes %}
+            <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="h-12 w-12 flex-shrink-0">
+                        <div class="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                            <span class="text-xl font-semibold text-empresa-green">{{ p.nombre_completo|slice:":1" }}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <a href="{% url 'users:historial_participante' p.pk %}" class="font-bold text-gray-900 hover:text-empresa-green transition duration-200">{{ p.nombre_completo }}</a>
+                        <p class="text-sm text-gray-500">{{ p.email }}</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <div class="hidden sm:block text-right">
+                        <p class="font-medium text-gray-800">{{ p.institucion.nombre|default:"Sin Institución" }}</p>
+                        <p class="text-sm text-gray-500">{{ p.titulo|default:"" }}</p>
+                    </div>
+                    <a href="{% url 'users:editar_participante' p.pk %}" class="ml-4 whitespace-nowrap rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                        Editar
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-10 text-gray-500 bg-white rounded-lg border border-gray-200 shadow-sm">
+                <p>No hay participantes registrados.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock main_container %}

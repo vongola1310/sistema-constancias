@@ -38,6 +38,7 @@
         </nav>
     </header>
     <main class="container mx-auto px-6 py-8">
+         {% block main_container %}
         {% if messages %}
             <div class="mb-6 space-y-2">
             {% for message in messages %}
@@ -49,6 +50,8 @@
         {% endif %}
         {% block content %}
         {% endblock content %}
+         {% endblock main_container %}
+
     </main>
     <script>
         const profileButton = document.getElementById('profile-button');

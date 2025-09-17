@@ -35,6 +35,13 @@ urlpatterns = [
 
     path('participante/<int:pk>/historial/', views.historial_participante_view, name='historial_participante'),
 
+    path('participantes/', views.lista_participantes_view, name='lista_participantes'),
+    
+    path('participante/<int:pk>/editar/', views.editar_participante_view, name='editar_participante'),
+
+     path('constancia/<int:pk>/enviar/', views.enviar_constancia_view, name='enviar_constancia'),
+
+
 
 ]
 

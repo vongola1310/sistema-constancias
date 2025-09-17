@@ -17,6 +17,7 @@ from django.http import HttpResponse
 from dateutil.relativedelta import relativedelta
 from django.utils import timezone
 from datetime import timedelta
+from django.core.mail import EmailMessage
 
 from .forms import (
     EvaluadorCreationForm, ProfilePhotoForm, SignatureForm, 
@@ -442,3 +443,67 @@ def historial_participante_view(request, pk):
         'constancias': constancias,
     }
     return render(request, 'users/historial_participante.html', context)
+
+@login_required
+def lista_participantes_view(request):
+    participantes = Participante.objects.all().order_by('nombre_completo')
+    context = {
+        'participantes': participantes
+    }
+    return render(request, 'users/lista_participantes.html', context)
+
+@login_required
+def editar_participante_view(request, pk):
+    participante = get_object_or_404(Participante, pk=pk)
+    
+    if request.method == 'POST':
+        form = ParticipanteForm(request.POST, instance=participante)
+        if form.is_valid():
+            form.save()
+            messages.success(request, '¡Los datos del participante han sido actualizados!')
+            return redirect('users:lista_participantes')
+    else:
+        form = ParticipanteForm(instance=participante)
+
+    context = {
+        'form': form,
+        'participante': participante
+    }
+    return render(request, 'users/editar_participante.html', context)
+
+@login_required
+def enviar_constancia_view(request, pk):
+    constancia = get_object_or_404(Constancia, pk=pk)
+    
+    # 1. Generamos el PDF en memoria usando nuestra función auxiliar
+    pdf_bytes = _generar_pdf_bytes(constancia)
+    
+    # 2. Creamos el correo electrónico
+    asunto = f"Tu constancia del curso: {constancia.curso.nombre}"
+    cuerpo = f"""
+    Hola {constancia.participante.nombre_completo},
+
+    ¡Felicidades por completar el curso!
+
+    Adjunto encontrarás tu constancia en formato PDF.
+
+    Saludos,
+    El equipo de Academia.
+    """
+    
+    email = EmailMessage(
+        asunto,
+        cuerpo,
+        'ju4nch01310@gmail.com',  # Remitente
+        [constancia.participante.email]  # Destinatario
+    )
+    
+    # 3. Adjuntamos el PDF
+    filename = f"constancia_{constancia.participante.nombre_completo}.pdf"
+    email.attach(filename, pdf_bytes, 'application/pdf')
+    
+    # 4. Enviamos el correo (se imprimirá en la consola)
+    email.send()
+    
+    messages.success(request, f"La constancia para {constancia.participante.nombre_completo} ha sido enviada exitosamente.")
+    return redirect('users:historial_constancias')
