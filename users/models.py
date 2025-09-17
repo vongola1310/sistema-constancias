@@ -34,9 +34,27 @@ class Curso(models.Model):
         return self.nombre
 
 class Participante(models.Model):
+    OPCIONES_TITULO = [
+        ('', 'Seleccionar Título...'),
+        ('Lic.', 'Licenciado(a)'),
+        ('Ing.', 'Ingeniero(a)'),
+        ('Dr.', 'Doctor(a)'),
+        ('Mtro.', 'Maestro(a)'),
+        ('Q.F.B.', 'Químico Farmacéutico Biólogo'),
+        ('Q.B.P.', 'Químico Bacteriólogo Parasitólogo'),
+        ('Otro', 'Otro (sin título)'),
+    ]
     nombre_completo = models.CharField(max_length=255)
     email = models.EmailField(unique=True, help_text="El correo debe ser único para cada participante.")
-    titulo = models.CharField(max_length=50, blank=True, null=True, verbose_name="Título Profesional (ej. Q.F.B.)")
+
+    titulo = models.CharField(
+        max_length=50,
+        choices=OPCIONES_TITULO, # Le asignamos la lista de opciones
+        default='',
+        blank=True,
+        verbose_name="Título Profesional"
+    )
+
     institucion = models.ForeignKey(
         Institucion, 
         on_delete=models.SET_NULL, 
