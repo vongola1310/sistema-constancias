@@ -2,117 +2,178 @@
 
 {% block content %}
 <div class="bg-white p-6 sm:p-8 rounded-xl shadow-md border border-gray-200">
-    
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
             <h2 class="text-3xl font-bold text-gray-800">Historial de Constancias</h2>
-            <p class="text-gray-500 mt-1">Aquí puedes ver, descargar y gestionar los certificados emitidos.</p>
+            <p class="text-gray-500 text-sm">Administra y descarga los certificados generados.</p>
         </div>
-        <a href="{% url 'users:crear_lote' %}" class="mt-4 sm:mt-0 inline-block bg-empresa-green text-white font-bold py-2 px-4 rounded-lg hover:bg-opacity-90 transition duration-300">
-            + Generar Nuevas Constancias
-        </a>
+        <a href="{% url 'users:crear_lote' %}" class="bg-empresa-green text-white font-bold py-2 px-4 rounded-lg mt-4 sm:mt-0 hover:bg-opacity-90 transition">+ Generar Nuevas</a>
     </div>
 
-    <div class="border-b border-gray-200">
-        <nav class="-mb-px flex space-x-6" aria-label="Tabs">
-            <a href="{% url 'users:historial_constancias' %}" 
-               class="shrink-0 border-b-2 px-1 pb-4 text-sm font-medium 
-                      {% if not filtro_activo %}
-                        border-empresa-green text-empresa-green
-                      {% else %}
-                        border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700
-                      {% endif %}">
-               Todos
-            </a>
-            <a href="{% url 'users:historial_constancias' %}?tipo=curso" 
-               class="shrink-0 border-b-2 px-1 pb-4 text-sm font-medium 
-                      {% if filtro_activo == 'curso' %}
-                        border-empresa-green text-empresa-green
-                      {% else %}
-                        border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700
-                      {% endif %}">
-               Cursos Normales
-            </a>
-            <a href="{% url 'users:historial_constancias' %}?tipo=webinar" 
-               class="shrink-0 border-b-2 px-1 pb-4 text-sm font-medium 
-                      {% if filtro_activo == 'webinar' %}
-                        border-empresa-green text-empresa-green
-                      {% else %}
-                        border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700
-                      {% endif %}">
-               Webinars
-            </a>
-        </nav>
-    </div>
+    <form method="GET" class="mb-6 flex gap-2">
+        <input type="text" name="q" value="{{ busqueda }}" placeholder="Buscar por nombre de participante..." 
+               class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-empresa-green">
+        {% if filtro_activo %}
+            <input type="hidden" name="tipo" value="{{ filtro_activo }}">
+        {% endif %}
+        <button type="submit" class="bg-gray-800 text-white px-6 py-2 rounded-lg font-bold hover:bg-black">Buscar</button>
+        {% if busqueda %}
+            <a href="?{% if filtro_activo %}tipo={{ filtro_activo }}{% endif %}" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-bold flex items-center">Limpiar</a>
+        {% endif %}
+    </form>
 
-    <form method="post">
+    <form method="post" id="batch-form">
         {% csrf_token %}
 
-        <div id="action-bar" class="hidden bg-gray-100 p-3 rounded-lg my-4 items-center gap-4 border">
-            <span id="selection-count" class="font-bold text-gray-700"></span>
-            <button type="submit" formaction="{% url 'users:borrar_constancias' %}" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700">
-                Eliminar Seleccionados
-            </button>
-            <button type="submit" formaction="{% url 'users:descargar_constancias_zip' %}" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">
-                Descargar Seleccionados (ZIP)
-            </button>
+        <div id="action-bar" class="hidden bg-gray-50 p-4 rounded-lg my-4 items-center gap-4 border border-gray-200 sticky top-4 z-30 shadow-sm">
+            <input type="checkbox" id="select-all" class="h-5 w-5 rounded text-empresa-green">
+            <span id="selection-count" class="font-bold text-gray-700 flex-1"></span>
+            
+            <div class="flex gap-2">
+                <button type="submit" formaction="{% url 'users:descargar_constancias_zip' %}" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                    ZIP
+                </button>
+
+                <button type="submit" formaction="{% url 'users:borrar_constancias' %}" 
+                        onclick="return confirm('¿Estás completamente seguro de eliminar las constancias seleccionadas? Esta acción no se puede deshacer.')"
+                        class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    Eliminar
+                </button>
+            </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-6">
-            {% for constancia in constancias %}
-            <div class="bg-white rounded-lg border border-gray-200 shadow-md p-5 flex flex-col justify-between">
-                <div>
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <p class="text-sm text-gray-500">Participante:</p>
-                            <a href="{% url 'users:historial_participante' constancia.participante.pk %}" class="hover:underline">
-                                <h3 class="font-bold text-lg text-gray-800 truncate" title="{{ constancia.participante.nombre_completo }}">{{ constancia.participante.nombre_completo }}</h3>
-                            </a>
-                        </div>
-                        <input type="checkbox" name="constancia_ids" value="{{ constancia.pk }}" class="h-5 w-5 rounded border-gray-300 text-empresa-green focus:ring-empresa-green constancia-checkbox">
+            {% for constancia in page_obj %}
+            <div class="bg-white rounded-lg border border-gray-200 shadow-md p-5 flex flex-col justify-between hover:border-empresa-green transition relative">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase font-bold tracking-wider">Participante:</p>
+                        <h3 class="font-bold text-gray-800">{{ constancia.participante.nombre_completo }}</h3>
+                        <p class="text-xs text-blue-600">{{ constancia.participante.email }}</p>
                     </div>
-                    <p class="text-sm text-gray-500 mt-4">Curso:</p>
-                    <h4 class="font-semibold text-gray-700 truncate" title="{{ constancia.curso.nombre }}">{{ constancia.curso.nombre }}</h4>
-                    <p class="text-xs text-gray-400 mt-2">Emitida el {{ constancia.fecha_emision|date:"d M Y" }}</p>
+                    <input type="checkbox" name="constancia_ids" value="{{ constancia.pk }}" class="h-6 w-6 rounded border-gray-300 text-empresa-green constancia-checkbox">
                 </div>
-
-                <div class="mt-5 flex items-center gap-2">
-                    <a href="{% url 'users:generar_pdf' constancia.pk %}" target="_blank" class="flex-1 text-center block bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-700 transition duration-300">
-                        Descargar PDF
-                    </a>
-                    <a href="{% url 'users:enviar_constancia' constancia.pk %}" class="block p-2 text-gray-500 hover:text-empresa-green hover:bg-gray-100 rounded-lg transition duration-300" title="Enviar por Email">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                    </a>
+                <div class="mt-4">
+                    <p class="text-xs text-gray-500">Curso:</p>
+                    <p class="text-sm font-semibold text-gray-700">{{ constancia.curso.nombre }}</p>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <a href="{% url 'users:generar_pdf' constancia.pk %}" class="flex-1 bg-gray-100 text-gray-700 text-center py-2 rounded-lg font-bold hover:bg-gray-200 transition">Ver PDF</a>
                 </div>
             </div>
             {% empty %}
-            <div class="col-span-1 md:col-span-2 lg:col-span-3 text-center py-10 text-gray-500">
-                <p>No se encontraron constancias con el filtro seleccionado.</p>
-            </div>
+                <div class="col-span-full py-12 text-center text-gray-500">
+                    No se encontraron constancias que coincidan con tu búsqueda.
+                </div>
             {% endfor %}
         </div>
     </form>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="flex flex-col items-center mt-12 mb-6">
+        <div class="inline-flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if filtro_activo %}&tipo={{ filtro_activo }}{% endif %}{% if busqueda %}&q={{ busqueda }}{% endif %}" 
+                   class="px-4 py-2 border-r border-gray-300 hover:bg-gray-100 text-gray-700 font-bold">Anterior</a>
+            {% endif %}
+
+            <span class="px-6 py-2 text-gray-700 font-medium">
+                Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+            </span>
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if filtro_activo %}&tipo={{ filtro_activo }}{% endif %}{% if busqueda %}&q={{ busqueda }}{% endif %}" 
+                   class="px-4 py-2 border-l border-gray-300 hover:bg-gray-100 text-gray-700 font-bold">Siguiente</a>
+            {% endif %}
+        </div>
+        <p class="text-xs text-gray-400 mt-3">Total: {{ page_obj.paginator.count }} registros registrados.</p>
+    </div>
+    {% endif %}
 </div>
 
 <script>
     const checkboxes = document.querySelectorAll('.constancia-checkbox');
+    const selectAll = document.getElementById('select-all');
     const actionBar = document.getElementById('action-bar');
     const selectionCount = document.getElementById('selection-count');
-    checkboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', updateActionBar);
+    const batchForm = document.getElementById('batch-form');
+
+    let selectedIds = JSON.parse(localStorage.getItem('selected_constancias')) || [];
+
+    function syncCheckboxes() {
+        checkboxes.forEach(cb => {
+            if (selectedIds.includes(cb.value)) {
+                cb.checked = true;
+            }
+        });
+        updateActionBar();
+    }
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                if (!selectedIds.includes(e.target.value)) selectedIds.push(e.target.value);
+            } else {
+                selectedIds = selectedIds.filter(id => id !== e.target.value);
+            }
+            saveAndRefresh();
+        });
     });
+
+    selectAll.addEventListener('change', (e) => {
+        checkboxes.forEach(cb => {
+            cb.checked = e.target.checked;
+            if (e.target.checked) {
+                if (!selectedIds.includes(cb.value)) selectedIds.push(cb.value);
+            } else {
+                selectedIds = selectedIds.filter(id => id !== cb.value);
+            }
+        });
+        saveAndRefresh();
+    });
+
+    function saveAndRefresh() {
+        localStorage.setItem('selected_constancias', JSON.stringify(selectedIds));
+        updateActionBar();
+    }
+
     function updateActionBar() {
-        const checkedCount = document.querySelectorAll('.constancia-checkbox:checked').length;
-        if (checkedCount > 0) {
-            actionBar.classList.remove('hidden');
-            actionBar.classList.add('flex');
-            selectionCount.textContent = `${checkedCount} seleccionado(s)`;
+        const totalCount = selectedIds.length;
+        if (totalCount > 0) {
+            actionBar.classList.replace('hidden', 'flex');
+            selectionCount.textContent = `${totalCount} constancia(s) seleccionada(s)`;
         } else {
-            actionBar.classList.add('hidden');
-            actionBar.classList.remove('flex');
+            actionBar.classList.replace('flex', 'hidden');
         }
     }
+
+    // Al enviar el formulario (Borrar o Descargar)
+    batchForm.addEventListener('submit', (e) => {
+        document.querySelectorAll('.temp-input').forEach(el => el.remove());
+        
+        selectedIds.forEach(id => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'constancia_ids'; 
+            input.value = id;
+            input.classList.add('temp-input');
+            batchForm.appendChild(input);
+        });
+
+        // NOTA: Si es borrado, limpiaremos la memoria después del envío.
+        // Como el navegador refrescará la página, solo necesitamos asegurarnos 
+        // de que localStorage se limpie en la nueva carga.
+        if (e.submitter && e.submitter.getAttribute('formaction').includes('borrar')) {
+            localStorage.removeItem('selected_constancias');
+        }
+    });
+
+    syncCheckboxes();
 </script>
 {% endblock content %}

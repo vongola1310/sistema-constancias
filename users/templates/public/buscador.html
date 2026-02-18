@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="min-h-[70vh] flex items-center justify-center px-4">
+    <div class="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Descarga tu Constancia</h2>
+        <p class="text-sm text-gray-500 mb-6 text-center">
+            Ingresa tu correo para obtener tus certificados de los últimos <strong>7 días</strong>.
+        </p>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="mb-4 p-3 rounded-lg text-sm {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Correo Electrónico</label>
+                <input type="email" name="email" value="{{ email|default:'' }}" required 
+                       placeholder="ejemplo@correo.com" 
+                       class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-empresa-green focus:border-empresa-green outline-none transition">
+            </div>
+            
+            <button type="submit" class="w-full bg-empresa-green text-white font-bold py-3 rounded-lg hover:bg-opacity-90 transform active:scale-[0.98] transition shadow-lg shadow-green-100">
+                Buscar Constancias
+            </button>
+        </form>
+
+        {% if constancias.count > 1 %}
+        <div class="mt-8 space-y-3 animate-fade-in-up">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest border-b pb-2">Se encontraron varias constancias:</p>
+            <div class="max-h-60 overflow-y-auto pr-2 space-y-3">
+                {% for c in constancias %}
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 hover:border-empresa-green transition">
+                    <div class="text-sm">
+                        <p class="font-bold text-gray-800 leading-tight">{{ c.curso.nombre|truncatechars:40 }}</p>
+                        <p class="text-gray-400 text-[11px] mt-1 italic">Emitida el {{ c.fecha_emision|date:"d M, Y" }}</p>
+                    </div>
+                    <a href="{% url 'users:descargar_pdf_publico' c.pk %}" 
+                       title="Descargar PDF"
+                       class="bg-blue-600 text-white w-10 h-10 flex items-center justify-center rounded-lg hover:bg-blue-700 shadow-md transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="mt-8 text-center border-t pt-4">
+            <p class="text-[10px] text-gray-400 leading-tight">
+                Por seguridad, los documentos solo están disponibles por tiempo limitado. <br>
+                Si tu evento fue hace más de una semana, contacta a soporte.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock content %}

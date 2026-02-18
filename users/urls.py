@@ -3,13 +3,15 @@
 from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
-
+from django.shortcuts import redirect # Importante
 
 app_name = 'users'
 
 urlpatterns = [
-    path('login/', views.login_view, name='login'),
+    path('', lambda request: redirect('users:dashboard'), name='index'),
     path('dashboard/', views.dashboard_view, name='dashboard'),
+    path('login/', views.login_view, name='login'),
+   
 
     path('evaluadores/crear/', views.crear_evaluador_view, name='crear_evaluador'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
@@ -27,7 +29,8 @@ urlpatterns = [
 
     path('historial/', views.historial_constancias_view, name='historial_constancias'),
 
-    path('webinar/subir/', views.subir_webinar_view, name='subir_webinar'),
+    path('webinar/paso-1-subir/', views.webinar_paso1_subir_view, name='webinar_paso1'),
+    path('webinar/paso-2-previsualizar/', views.webinar_paso2_previsualizar_view, name='webinar_paso2'),
 
     path('historial/borrar-seleccion/', views.borrar_constancias_view, name='borrar_constancias'),
 
@@ -39,9 +42,16 @@ urlpatterns = [
     
     path('participante/<int:pk>/editar/', views.editar_participante_view, name='editar_participante'),
 
-     path('constancia/<int:pk>/enviar/', views.enviar_constancia_view, name='enviar_constancia'),
+    path('constancia/<int:pk>/enviar/', views.enviar_constancia_view, name='enviar_constancia'),
 
+    path('encuesta/<uuid:token>/', views.encuesta_view, name='encuesta'),
 
+    path('enviar-masivo/', views.enviar_constancias_masivo_view, name='enviar_masivo'),
+
+    path('descargar/', views.buscador_constancias_publico, name='buscador_publico'),
+
+    path('descargar-pdf/<int:pk>/', views.descargar_pdf_publico, name='descargar_pdf_publico'),
+    
 
 ]
 

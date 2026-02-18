@@ -10,9 +10,11 @@
 <body class="bg-gray-50 text-gray-800 font-sans">
     <header class="bg-white shadow-sm border-b border-gray-200">
         <nav class="container mx-auto px-6 py-3 flex justify-between items-center">
-            <a href="{% url 'users:dashboard' %}">
+            <a href="{% if user.is_authenticated %}{% url 'users:dashboard' %}{% else %}{% url 'users:buscador_publico' %}{% endif %}">
                 <img src="{% static 'images/logo.png' %}" alt="Logo de la Empresa" class="h-10 w-auto">
             </a>
+
+            {% if user.is_authenticated %}
             <div class="relative">
                 <button id="profile-button" class="block h-10 w-10 rounded-full overflow-hidden border-2 border-gray-300 focus:outline-none focus:border-empresa-green">
                     {% if user.foto %}
@@ -27,7 +29,7 @@
                     <a href="{% url 'users:change_photo' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Cambiar Foto</a>
                     <a href="{% url 'users:change_signature' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Cambiar Firma</a>
                     <div class="border-t border-gray-100"></div>
-                    <form action="{% url 'users:logout' %}" method="post">
+                    <form action="{% url 'users:logout' %}" method="post" style="display:inline;">
                         {% csrf_token %}
                         <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                             Cerrar Sesión
@@ -35,35 +37,41 @@
                     </form>
                 </div>
             </div>
-        </nav>
+            {% endif %}
+            </nav>
     </header>
-    <main class="container mx-auto px-6 py-8">
-         {% block main_container %}
-        {% if messages %}
-            <div class="mb-6 space-y-2">
-            {% for message in messages %}
-                <div class="p-4 rounded-md text-white {% if message.tags == 'success' %}bg-empresa-green{% else %}bg-red-500{% endif %}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-            </div>
-        {% endif %}
-        {% block content %}
-        {% endblock content %}
-         {% endblock main_container %}
 
+    <main class="container mx-auto px-6 py-8">
+        {% block main_container %}
+            {% if messages %}
+                <div class="mb-6 space-y-2">
+                {% for message in messages %}
+                    <div class="p-4 rounded-md text-white {% if message.tags == 'success' %}bg-empresa-green{% else %}bg-red-500{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+                </div>
+            {% endif %}
+            
+            {% block content %}
+            {% endblock content %}
+        {% endblock main_container %}
     </main>
+
     <script>
         const profileButton = document.getElementById('profile-button');
         const profileMenu = document.getElementById('profile-menu');
-        profileButton.addEventListener('click', () => {
-            profileMenu.classList.toggle('hidden');
-        });
-        window.addEventListener('click', (e) => {
-            if (!profileButton.contains(e.target) && !profileMenu.contains(e.target)) {
-                profileMenu.classList.add('hidden');
-            }
-        });
+        
+        if (profileButton && profileMenu) {
+            profileButton.addEventListener('click', () => {
+                profileMenu.classList.toggle('hidden');
+            });
+            window.addEventListener('click', (e) => {
+                if (!profileButton.contains(e.target) && !profileMenu.contains(e.target)) {
+                    profileMenu.classList.add('hidden');
+                }
+            });
+        }
     </script>
 </body>
 </html>

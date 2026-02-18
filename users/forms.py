@@ -1,7 +1,7 @@
 # users/forms.py
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import Evaluador, Curso, Participante,Institucion,Constancia
+from .models import Evaluador, Curso, Participante,Institucion,Constancia,EncuestaRespuesta
 
 class EvaluadorCreationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
@@ -59,9 +59,7 @@ class LoteConstanciaForm(forms.Form):
         queryset=Evaluador.objects.all(),
         label="Selecciona el Especialista que firma"
     )
-
-class WebinarUploadForm(forms.Form):
-    archivo_excel = forms.FileField(label="Selecciona el archivo Excel (.xlsx)")
+class WebinarStep1Form(forms.Form):
     curso_nombre = forms.CharField(label="Nombre del Evento/Webinar")
     fecha_inicio = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), label="Fecha de Inicio")
     fecha_termino = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}), label="Fecha de Término")
@@ -70,3 +68,30 @@ class WebinarUploadForm(forms.Form):
         queryset=Evaluador.objects.all(),
         label="Especialista que firma"
     )
+    archivo_csv = forms.FileField(label="Selecciona el archivo CSV de WebEx")
+
+class EncuestaForm(forms.ModelForm):
+    class Meta:
+        model = EncuestaRespuesta
+        # Definimos explícitamente solo los campos que queremos que el usuario llene
+        fields = [
+            'satisfaccion_general', 'evaluacion_general', 'aspectos_interesantes',
+            'aspectos_no_gustaron', 'informacion_valiosa', 'organizacion',
+            'duracion', 'recomendacion', 'temas_futuros', 'horario_preferido',
+            'dia_preferido', 'comentarios_adicionales', 'interes_productos'
+        ]
+        # La sección de widgets no cambia y está correcta
+        widgets = {
+            'satisfaccion_general': forms.Textarea(attrs={'rows': 3}),
+            'evaluacion_general': forms.Textarea(attrs={'rows': 3}),
+            'aspectos_interesantes': forms.Textarea(attrs={'rows': 3}),
+            'aspectos_no_gustaron': forms.Textarea(attrs={'rows': 3}),
+            'informacion_valiosa': forms.Textarea(attrs={'rows': 3}),
+            'organizacion': forms.RadioSelect,
+            'duracion': forms.RadioSelect,
+            'recomendacion': forms.RadioSelect,
+            'horario_preferido': forms.RadioSelect,
+            'dia_preferido': forms.RadioSelect,
+            'comentarios_adicionales': forms.Textarea(attrs={'rows': 3}),
+            'interes_productos': forms.CheckboxInput(attrs={'class': 'h-5 w-5'}),
+        }

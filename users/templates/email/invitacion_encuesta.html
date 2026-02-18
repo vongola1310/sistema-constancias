@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Encuesta de Evaluación: {{ curso_nombre }}</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
+        <h2 style="color: #005a4a;">Encuesta de Evaluación</h2>
+        <p>Hola {{ nombre_participante }},</p>
+        <p>Gracias por haber asistido al seminario web: "<strong>{{ curso_nombre }}</strong>".</p>
+        <p>Para poder generar y enviarte tu constancia de participación, te pedimos por favor que completes la siguiente breve encuesta. Tus comentarios son muy valiosos para nosotros.</p>
+        <p>Haz clic en el siguiente botón para acceder a tu encuesta personalizada:</p>
+        <p style="text-align: center; margin: 30px 0;">
+            <a href="{{ enlace_encuesta }}" style="background-color: #74C054; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">Completar Encuesta</a>
+        </p>
+        <p>¡Gracias por tu tiempo!</p>
+        <p>El equipo de Academia</p>
+    </div>
+</body>
+</html>

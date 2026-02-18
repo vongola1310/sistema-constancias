@@ -2,146 +2,112 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Constancia - {{ constancia.participante.nombre_completo }}</title>
-   <style>
-    @page {
-        size: letter landscape;
-        margin: 0;
-    }
-    html, body {
-        margin: 0;
-        padding: 0;
-        font-family: Arial, sans-serif; /* Puedes ajustar la fuente si lo deseas */
-        width: 100%;
-        height: 100%;
-    }
-    .constancia-container {
-        position: relative;
-        width: 100%;
-        height: 100%;
-    }
-    #fondo {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 1;
-    }
-    .contenido {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 2;
-    }
-    .texto {
-        position: absolute;
-        width: 90%;
-        left: 5%;
-        text-align: center;
-        color: #333;
-    }
+    <style>
+        @page { 
+            size: 960px 720px; 
+            margin: 0; 
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: Arial, sans-serif;
+            width: 960px;
+            height: 720px;
+        }
 
-    /* --- ESTILOS AJUSTADOS SEGÚN TU DISEÑO --- */
-    
-    .estatico-otorga {
-        top: 250px; /* AJUSTAR */
-        font-size: 14px;
-        color: #555;
-    }
-    .estatico-constancia {
-        top: 350px; /* AJUSTAR */
-        font-size: 38px;
-        font-weight: bold;
-        color: #005a4a;
-        letter-spacing: 4px; /* Añade espaciado entre letras */
-    }
-    .estatico-a-la {
-        top: 270px; /* AJUSTAR */
-        font-size: 14px;
-        color: #555;
-    }
-    .nombre-participante {
-        top: 425px; /* AJUSTAR */
-        font-size: 42px;
-        font-weight: bold;
-        color: #222;
-    }
-    .estatico-por-haber {
-        top: 525px; /* AJUSTAR */
-        font-size: 14px;
-        color: #555;
-    }
-    .nombre-curso {
-        top: 550px; /* AJUSTAR */
-        font-size: 28px;
-        font-weight: bold;
-        color: #005a4a;
-    }
-    .fecha-duracion {
-        top: 650px; /* AJUSTAR */
-        font-size: 14px;
-        color: #555;
-    }
-    .firma-container {
-        position: absolute;
-        bottom: 110px; /* AJUSTAR */
-        width: 280px;
-        text-align: center;
-    }
-    .firma-gerente { left: 150px; } /* AJUSTAR */
-    .firma-especialista { right: 150px; } /* AJUSTAR */
-    .firma-img {
-        height: 150px; /* AJUSTAR */
-        width: auto;
-        margin-bottom: -65px;
-    }
-    .firma-nombre {
-        font-size: 14px;
-        font-weight: bold;
-        border-top: 1px solid #333;
-        padding-top: 5px;
-        margin-top: 5px;
-    }
-    .firma-cargo {
-        font-size: 12px;
-        color: #555;
-    }
-</style>
+        .cert-container {
+            position: relative;
+            width: 960px;
+            height: 720px;
+            overflow: hidden;
+        }
+
+        .bg-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 960px;
+            height: 720px;
+        }
+
+        .text-layer {
+            position: absolute;
+            width: 960px;
+            text-align: center;
+            z-index: 1;
+        }
+
+        .header-verde { top: 110px; color: white; }
+        .otorga { font-size: 13pt; margin: 0; }
+        .titulo { font-size: 36pt; font-weight: bold; margin: -4px 0 0 0; line-height: 1; }
+
+        .bloque-nombre { top: 250px; }
+        .a-label { font-size: 13pt; color: #333; margin: 0; }
+        .nombre-alumno { font-size: 28pt; font-weight: bold; color: #004b31; margin: 6px 0 0 0; }
+
+        .bloque-curso { top: 340px; }
+        .participo-text { font-size: 11pt; color: #666; margin: 0; }
+        .curso-nombre { font-size: 16pt; font-weight: bold; color: #7abf5a; margin: 6px 0 0 0; padding: 0 80px; line-height: 1.3; }
+
+        .bloque-fecha { top: 490px; font-size: 12pt; color: #333; }
+
+        .bloque-firmas {
+            position: absolute;
+            bottom: 20px;
+            width: 960px;
+            z-index: 1;
+        }
+        .tabla-firmas { width: 100%; border-collapse: collapse; }
+        .celda-firma { width: 50%; text-align: center; vertical-align: bottom; }
+        .img-firma { height: 70px; display: block; margin: 0 auto; }
+        .nom-firma { color: #7abf5a; font-weight: bold; font-size: 10pt; margin: 3px 0 0 0; }
+        .pue-firma { color: #888; font-size: 8pt; margin: 0; line-height: 1.3; }
+    </style>
 </head>
 <body>
-    {% if bg_image_base64 %}
-    <img id="fondo" src="data:{{ bg_image_mime_type }};base64,{{ bg_image_base64|safe }}">
-    {% endif %}
-    
-    <div class="contenido">
-        
-        <div class="texto estatico-otorga">otorga la presente</div>
-        <div class="texto estatico-constancia">CONSTANCIA</div>
-        <div class="texto estatico-a-la">al {{ constancia.participante.titulo }}</div>
+    <div class="cert-container">
+        <img class="bg-image" src="{{ bg_url }}">
 
-        <div class="texto nombre-participante">{{ constancia.participante.nombre_completo }}</div>
-        <div class="texto estatico-por-haber">por haber participado activamente en el curso teórico</div>
-        <div class="texto nombre-curso">{{ constancia.curso.nombre }}</div>
-        <div class="texto fecha-duracion">
-            Que tuvo lugar del {{ constancia.fecha_inicio|date:"d \d\e F \d\e\l Y" }} al {{ constancia.fecha_termino|date:"d \d\e F \d\e\l Y" }} con una duración total de {{ constancia.duracion_en_horas }} horas.
+        <div class="text-layer header-verde">
+            <div class="otorga">otorga la presente</div>
+            <div class="titulo">constancia</div>
         </div>
 
-        <div class="firma-container firma-gerente">
-            {% if firma_gerente_base64 %}
-            <img src="data:{{ firma_gerente_mime_type }};base64,{{ firma_gerente_base64|safe }}" class="firma-img">
-            {% endif %}
-            <p class="firma-nombre">{{ constancia.firma_gerente.get_full_name }}</p>
-            <p class="firma-cargo">{{ constancia.firma_gerente.cargo }}</p>
+        <div class="text-layer bloque-nombre">
+            <div class="a-label">a</div>
+            <div class="nombre-alumno">{{ constancia.participante.nombre_completo }}</div>
         </div>
-        <div class="firma-container firma-especialista">
-            {% if firma_especialista_base64 %}
-            <img src="data:{{ firma_especialista_mime_type }};base64,{{ firma_especialista_base64|safe }}" class="firma-img">
-            {% endif %}
-            <p class="firma-nombre">{{ constancia.firma_especialista.get_full_name }}</p>
-            <p class="firma-cargo">{{ constancia.firma_especialista.cargo }}</p>
+
+        <div class="text-layer bloque-curso">
+            <div class="participo-text">por haber participado activamente en el</div>
+            <div class="curso-nombre">{{ constancia.curso.nombre }}</div>
+        </div>
+
+        <div class="text-layer bloque-fecha">
+            Que tuvo lugar el <strong>{{ fecha_texto }}</strong><br>
+            con una duración total de <strong>{{ duracion_formateada }} horas.</strong>
+        </div>
+
+        <div class="bloque-firmas">
+            <table class="tabla-firmas">
+                <tr>
+                    <td class="celda-firma">
+                        {% if firma_g_url %}
+                            <img src="{{ firma_g_url }}" class="img-firma">
+                        {% endif %}
+                        <p class="nom-firma">IB Gibran Pando Morales</p>
+                        <p class="pue-firma">Gerente Nacional de Proyectos de<br>Capacitación y de Servicio.</p>
+                    </td>
+                    <td class="celda-firma">
+                        {% if firma_e_url %}
+                            <img src="{{ firma_e_url }}" class="img-firma">
+                        {% endif %}
+                        <p class="nom-firma">MC Isabel Cecilia Neri Badillo</p>
+                        <p class="pue-firma">Especialista en Aplicaciones de<br>Academia y Service Hub</p>
+                    </td>
+                </tr>
+            </table>
         </div>
     </div>
 </body>
