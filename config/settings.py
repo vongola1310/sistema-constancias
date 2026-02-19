@@ -1,29 +1,55 @@
 import os
 from pathlib import Path
+import dj_database_url
+from dotenv import load_dotenv
 
+
+# 1. Cargar variables de entorno (Lee el archivo .env si existe en tu PC)
+load_dotenv()
+
+# 2. Definición de directorios
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SEGURIDAD: En producción, usa variables de entorno para esto
-SECRET_KEY = 'django-insecure-@w)^^)@8)smfj=+-(z(elczdtntjtgqit70mu5zpl@c8oxb5m6'
+# 3. Detectar si estamos en Vercel o en Local
+IS_VERCEL = 'VERCEL' in os.environ
 
-DEBUG = True
+# 4. Seguridad
+# SECRET_KEY: Intenta leerla del .env, si no, usa una por defecto (solo para desarrollo)
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key-dev-only')
 
-ALLOWED_HOSTS = []
+# DEBUG: 
+# En Vercel (Producción) será False automáticamente.
+# En tu PC será True.
+DEBUG = not IS_VERCEL
 
-# Aplicaciones instaladas
+ALLOWED_HOSTS = [
+    '.vercel.app', 
+    '.now.sh', 
+    '127.0.0.1', 
+    'localhost'
+]
+
+# 5. Aplicaciones Instaladas
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    
+    # --- CLOUDINARY (El orden es CRÍTICO) ---
+    'cloudinary_storage',  # Debe ir ANTES de staticfiles
     'django.contrib.staticfiles',
+    'cloudinary',          # Debe ir DESPUÉS de staticfiles
+    # ----------------------------------------
+
     'users',
     'widget_tweaks',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # <-- Motor de estáticos para Vercel
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -51,13 +77,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# Base de datos (SQLite para desarrollo)
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+# 6. Base de Datos Híbrida
+# Vercel inyecta automáticamente la variable POSTGRES_URL
+if IS_VERCEL:
+   DATABASES = {
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL', 'sqlite:///db.sqlite3'),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
+else:
+    # En tu PC usamos la de siempre
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # Validadores de contraseña
 AUTH_PASSWORD_VALIDATORS = [
@@ -73,23 +110,29 @@ TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_TZ = True
 
-# Archivos Estáticos
-STATIC_URL = '/static/'
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
 
-# Archivos Media (Fotos de perfil, firmas, etc.)
+# 7. Archivos Estáticos (CSS, JS) - WhiteNoise
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Vercel guardará los estáticos aquí
+
+# 8. Archivos Media (Imágenes) - Cloudinary
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Configuración que lee tu .env o las variables de Vercel
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
+}
+
+# Esto hace la magia: guarda las fotos en la nube
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Configuración de Usuarios y Login
+# Configuración de Usuarios
 AUTH_USER_MODEL = 'users.Evaluador'
 LOGIN_URL = 'users:login'
 LOGOUT_REDIRECT_URL = 'users:login'
-
-# --- FIN DE CONFIGURACIÓN ---
-# Nota: Toda la configuración de Email (SMTP/Mailgun) ha sido eliminada 
-# ya que el sistema ahora funciona exclusivamente mediante portal de descarga.

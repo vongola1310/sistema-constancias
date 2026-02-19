@@ -4,9 +4,14 @@ import io
 import base64
 import mimetypes
 import zipfile
-import pdfkit
 import openpyxl
 import csv
+from io import BytesIO
+from xhtml2pdf import pisa
+from django.template.loader import get_template
+from django.contrib.staticfiles import finders
+from django.conf import settings
+import os
 from datetime import date, timedelta
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
@@ -21,6 +26,9 @@ from django.utils import timezone
 from dateutil.relativedelta import relativedelta
 from django.core.mail import EmailMessage
 from django.core.paginator import Paginator
+import os
+from django.conf import settings
+from .models import Participante, Curso, Constancia
 
 from .forms import (
     EvaluadorCreationForm, ProfilePhotoForm, SignatureForm, 
@@ -360,6 +368,9 @@ def webinar_paso1_subir_view(request):
             
     return render(request, 'users/webinar_paso1_subir.html', {'form': WebinarStep1Form()})
 
+from django.db import transaction
+from .models import Participante, Curso, Constancia
+from .models import Participante, Curso, Constancia, Evaluador
 @login_required
 def webinar_paso2_previsualizar_view(request):
     event_data = request.session.get('webinar_event_data')
@@ -370,8 +381,69 @@ def webinar_paso2_previsualizar_view(request):
         messages.error(request, "No hay datos para procesar.")
         return redirect('users:webinar_paso1')
 
-    # ... (Aquí va tu lógica de POST para guardar en DB que ya tienes) ...
+    # --- INICIO DE LA LÓGICA POST ---
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                
+                # 1. Crear el Curso en la Base de Datos
+                curso = Curso.objects.create(
+                    nombre=event_data['curso_nombre'],
+                )
 
+                # 2. Obtener los Firmantes (Evaluador)
+                # Especialista: Usamos el ID que guardaste en el paso 1
+                firma_e_id = event_data.get('firma_especialista_id')
+                firma_especialista = Evaluador.objects.filter(id=firma_e_id).first() if firma_e_id else None
+
+                # Gerente: Buscamos al Evaluador que tenga es_gerente=True (según tu models.py)
+                firma_gerente = Evaluador.objects.filter(es_gerente=True).first()
+
+                # 3. Crear Participantes y sus Constancias
+                for p_data in participantes:
+                    participante, created = Participante.objects.get_or_create(
+                        email=p_data['email'],
+                        defaults={
+                            'nombre_completo': p_data['nombre_completo'],
+                            'institucion_id': None  # Asumimos None si es texto libre, ajusta si vinculas al modelo Institucion
+                        }
+                    )
+
+                    if not created:
+                        participante.nombre_completo = p_data['nombre_completo']
+                        participante.save()
+
+                    import uuid # Asegúrate de que import uuid esté arriba en el archivo
+                    nuevo_codigo = str(uuid.uuid4()).split('-')[0].upper()
+
+                    # Finalmente, creamos la constancia con los datos exactos que pide tu modelo
+                    Constancia.objects.create(
+                        participante=participante,
+                        curso=curso,
+                        fecha_inicio=event_data['fecha_inicio'],
+                        fecha_termino=event_data['fecha_termino'],
+                        duracion_en_horas=event_data['duracion_en_horas'],
+                        firma_gerente=firma_gerente,
+                        firma_especialista=firma_especialista,
+                        codigo_verificacion=nuevo_codigo,
+                        es_webinar=True # Marcamos que viene del flujo de Webinar
+                    )
+
+            # 4. Limpiar la sesión 
+            del request.session['webinar_event_data']
+            del request.session['webinar_participantes_calificados']
+            del request.session['webinar_participantes_no_calificados']
+
+            # 5. Mensaje de éxito y redirección
+            messages.success(request, f"¡Éxito! Se generaron {len(participantes)} constancias correctamente.")
+            return redirect('users:historial_constancias')
+
+        except Exception as e:
+            messages.error(request, f"Hubo un error al generar las constancias: {str(e)}")
+            return redirect('users:webinar_paso2')
+
+
+    # Si es GET (solo cargar la página), muestra el HTML
     context = {
         'participantes': participantes,
         'no_calificados': no_calificados,
@@ -407,45 +479,106 @@ def encuesta_view(request, token):
 # --- LÓGICA DE GENERACIÓN DE PDF ---
 import os
 import tempfile
+import requests
 from django.conf import settings
+from PIL import Image  # <--- NUEVO IMPORT
+import io
+import requests
+import base64
+import os
 
-def _imagen_a_base64(path):
-    """Convierte una imagen local a string base64 para incrustar en HTML."""
-    if not path or not os.path.exists(path):
+def _imagen_a_base64(imagen_source):
+    """
+    Descarga/Lee imagen, elimina transparencia (para evitar cuadros negros)
+    y retorna Base64.
+    """
+    if not imagen_source:
         return ""
-    
-    ext = os.path.splitext(path)[1].lower()
-    mime_types = {
-        '.png': 'image/png',
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.gif': 'image/gif',
-        '.svg': 'image/svg+xml',
-    }
-    mime = mime_types.get(ext, 'image/png')
-    
-    with open(path, 'rb') as f:
-        data = base64.b64encode(f.read()).decode('utf-8')
-    
-    return f"data:{mime};base64,{data}"
 
+    try:
+        image_data = None
+        
+        # 1. OBTENER LOS DATOS DE LA IMAGEN (Sea URL o Archivo Local)
+        ruta_o_url = str(imagen_source)
+        if hasattr(imagen_source, 'url'):
+            ruta_o_url = imagen_source.url
+
+        if ruta_o_url.startswith('http'):
+            response = requests.get(ruta_o_url)
+            if response.status_code == 200:
+                image_data = response.content
+        else:
+            # Lógica para archivo local
+            path_local = ""
+            if hasattr(imagen_source, 'path'):
+                try: path_local = imagen_source.path
+                except: pass
+            if not path_local: path_local = ruta_o_url
+            
+            if os.path.exists(path_local):
+                with open(path_local, "rb") as f:
+                    image_data = f.read()
+
+        if not image_data:
+            return ""
+
+        # 2. PROCESAMIENTO CON PILLOW (El secreto anti-cuadros negros)
+        img = Image.open(io.BytesIO(image_data))
+        
+        # Si tiene transparencia (RGBA), la convertimos a fondo blanco
+        if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
+            # Crear lienzo blanco del mismo tamaño
+            background = Image.new("RGB", img.size, (255, 255, 255))
+            # Convertir a RGBA para asegurar compatibilidad de pegado
+            img = img.convert("RGBA")
+            # Pegar la imagen original usando su canal alfa como máscara
+            background.paste(img, mask=img.split()[3]) # 3 es el canal Alpha
+            img = background
+        else:
+            img = img.convert("RGB")
+
+        # 3. GUARDAR EN BUFFER COMO JPEG (Más ligero y sin transparencia)
+        buffered = io.BytesIO()
+        img.save(buffered, format="JPEG", quality=95)
+        encoded = base64.b64encode(buffered.getvalue()).decode('utf-8')
+        
+        return f"data:image/jpeg;base64,{encoded}"
+
+    except Exception as e:
+        print(f"Error procesando imagen {imagen_source}: {e}")
+        return ""
+
+    
+
+def link_callback(uri, rel):
+    if uri.startswith('data:'):
+        return uri
+    if uri.startswith('http://') or uri.startswith('https://'):
+        return uri
+    # Para cualquier archivo local
+    path = uri.lstrip('/').lstrip('\\')
+    full_path = os.path.join(settings.BASE_DIR, 'static', path)
+    if os.path.exists(full_path):
+        return full_path
+    return uri
 
 def _generar_pdf_bytes(constancia):
-
-    # 1. Convertir imágenes a Base64
-    bg_path = finders.find('images/fondo_constancia.png')
+    
+    # 1. Procesar FONDO (Archivo Estático Local)
+    # Construimos la ruta absoluta usando BASE_DIR para que funcione en Windows/Linux
+    bg_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'fondo_constancia.png')
     bg_url = _imagen_a_base64(bg_path)
 
-    firma_g_url = (
-        _imagen_a_base64(constancia.firma_gerente.firma_digital.path)
-        if constancia.firma_gerente else ""
-    )
-    firma_e_url = (
-        _imagen_a_base64(constancia.firma_especialista.firma_digital.path)
-        if constancia.firma_especialista else ""
-    )
+    # 2. Procesar FIRMAS (Pueden estar en Local o en Cloudinary)
+    firma_g_url = ""
+    if constancia.firma_gerente and constancia.firma_gerente.firma_digital:
+        firma_g_url = _imagen_a_base64(constancia.firma_gerente.firma_digital)
 
-    # 2. Formateo de datos
+    firma_e_url = ""
+    if constancia.firma_especialista and constancia.firma_especialista.firma_digital:
+        firma_e_url = _imagen_a_base64(constancia.firma_especialista.firma_digital)
+
+    # 3. Formateo de Fechas
     meses = {
         1: "enero", 2: "febrero", 3: "marzo", 4: "abril",
         5: "mayo", 6: "junio", 7: "julio", 8: "agosto",
@@ -455,65 +588,37 @@ def _generar_pdf_bytes(constancia):
     fecha_texto = f"{f.day} de {meses[f.month]} de {f.year}" if f else ""
     duracion_formateada = f"{int(constancia.duracion_en_horas):02d}" if constancia.duracion_en_horas else "00"
 
-    # 3. Contexto del template
+    # 4. Preparar Contexto para el HTML
     context = {
         'constancia': constancia,
-        'bg_url': bg_url,
-        'firma_g_url': firma_g_url,
-        'firma_e_url': firma_e_url,
+        'bg_url': bg_url,         # <--- Base64 del fondo
+        'firma_g_url': firma_g_url, # <--- Base64 de firma gerente
+        'firma_e_url': firma_e_url, # <--- Base64 de firma especialista
         'fecha_texto': fecha_texto,
         'duracion_formateada': duracion_formateada,
     }
 
-    # 4. Renderizar el HTML
+    # 5. Renderizar el HTML con los datos
+    # Asegúrate de que tu template HTML use: <img src="{{ bg_url }}">
     html_string = render_to_string('pdf/constancia_template.html', context)
+
+    # 6. Generar el PDF en Memoria
+    buffer = io.BytesIO()
+    pisa_status = pisa.CreatePDF(
+        html_string, 
+        dest=buffer, 
+        link_callback=link_callback,
+        encoding='UTF-8'
+    )
     
-    print(f"DEBUG HTML COMPLETO:\n{html_string}")
+    # DEBUG LOGS (Verás esto en la terminal si algo falla)
+    print(f"DEBUG: PDF Generado. Errores: {pisa_status.err}")
+    if not bg_url: print("ALERTA: No se pudo cargar el fondo en Base64")
 
-    with open(r'C:\Users\PAlvaro\Documents\debug_constancia.html', 'w', encoding='utf-8') as f:f.write(html_string)
-
-    print(f"DEBUG html_string longitud: {len(html_string)}")
-    print(f"DEBUG bg_url tiene datos: {bool(context['bg_url'])}")
-    print(f"DEBUG constancia.participante: {constancia.participante}")
-    print(f"DEBUG constancia.curso: {constancia.curso}")
-    print(f"DEBUG fecha_texto: {fecha_texto}")
-
-    # 5. Guardar HTML en archivo temporal y generar PDF desde archivo
-    tmp_html = None
-    try:
-        # Crear archivo temporal para el HTML
-        with tempfile.NamedTemporaryFile(
-            mode='w',
-            suffix='.html',
-            delete=False,
-            encoding='utf-8'
-        ) as tmp:
-            tmp.write(html_string)
-            tmp_html = tmp.name
-
-        # Configuración de wkhtmltopdf
-        path_wkhtmltopdf = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
-        config = pdfkit.configuration(wkhtmltopdf=path_wkhtmltopdf)
-
-        options = {
-            'page-size': 'Letter',
-            'orientation': 'Landscape',
-            'margin-top': '0', 'margin-right': '0',
-            'margin-bottom': '0', 'margin-left': '0',
-            'encoding': "UTF-8",
-            'no-outline': None,
-            'quiet': '',
-            'zoom': '1.38',
-        }
-
-        # Generar PDF desde archivo (no desde string)
-        pdf_bytes = pdfkit.from_file(tmp_html, False, configuration=config, options=options)
-        return pdf_bytes
-
-    finally:
-        # Limpiar archivo temporal siempre, aunque haya error
-        if tmp_html and os.path.exists(tmp_html):
-            os.unlink(tmp_html)
+    if pisa_status.err:
+        return None
+        
+    return buffer.getvalue()
 
    
 @login_required
@@ -526,29 +631,7 @@ def generar_pdf_constancia_view(request, pk):
     return response
 
 
-# 1. FUNCIÓN DE APOYO (Debe ir arriba para que no de error de "not defined")
-def link_callback(uri, rel):
-    """
-    Convierte URLs de HTML a rutas absolutas para xhtml2pdf.
-    """
-    result = finders.find(uri)
-    if result:
-        if not isinstance(result, (list, tuple)):
-            result = [result]
-        result = list(os.path.realpath(path) for path in result)
-        path = result[0]
-    else:
-        sUrl = settings.STATIC_URL
-        mUrl = settings.MEDIA_URL
-        if uri.startswith(mUrl):
-            path = os.path.join(settings.MEDIA_ROOT, uri.replace(mUrl, ""))
-        elif uri.startswith(sUrl):
-            path = os.path.join(settings.STATIC_ROOT, uri.replace(sUrl, ""))
-        else:
-            return uri
-    if not os.path.isfile(path):
-        return uri
-    return path
+
 
 @login_required
 def enviar_constancias_masivo_view(request):

@@ -1,0 +1,25 @@
+# .gitignore
+
+# Archivos de sistema y compilados
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Base de datos (No subir la local)
+db.sqlite3
+
+# Variables de entorno y secretos (¡CRÍTICO!)
+.env
+
+# Archivos estáticos y media (En producción se manejan distinto)
+media/
+staticfiles/
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db

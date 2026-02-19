@@ -2,113 +2,110 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <title>Constancia</title>
     <style>
-        @page { 
-            size: 960px 720px; 
+        /* 1. MÁRGENES EN CERO: Esto evita que se cree la segunda hoja */
+        @page {
+            size: letter landscape;
             margin: 0; 
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            margin: 0; 
-            padding: 0; 
-            font-family: Arial, sans-serif;
-            width: 960px;
-            height: 720px;
+            padding: 0;
+            background-image: url('{{ bg_url }}');
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: 100% 100%;
         }
 
-        .cert-container {
-            position: relative;
-            width: 960px;
-            height: 720px;
-            overflow: hidden;
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
         }
 
-        .bg-image {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 960px;
-            height: 720px;
+        .img-firma {
+            width: 130px;
+            height: 70px;
         }
-
-        .text-layer {
-            position: absolute;
-            width: 960px;
-            text-align: center;
-            z-index: 1;
-        }
-
-        .header-verde { top: 110px; color: white; }
-        .otorga { font-size: 13pt; margin: 0; }
-        .titulo { font-size: 36pt; font-weight: bold; margin: -4px 0 0 0; line-height: 1; }
-
-        .bloque-nombre { top: 250px; }
-        .a-label { font-size: 13pt; color: #333; margin: 0; }
-        .nombre-alumno { font-size: 28pt; font-weight: bold; color: #004b31; margin: 6px 0 0 0; }
-
-        .bloque-curso { top: 340px; }
-        .participo-text { font-size: 11pt; color: #666; margin: 0; }
-        .curso-nombre { font-size: 16pt; font-weight: bold; color: #7abf5a; margin: 6px 0 0 0; padding: 0 80px; line-height: 1.3; }
-
-        .bloque-fecha { top: 490px; font-size: 12pt; color: #333; }
-
-        .bloque-firmas {
-            position: absolute;
-            bottom: 20px;
-            width: 960px;
-            z-index: 1;
-        }
-        .tabla-firmas { width: 100%; border-collapse: collapse; }
-        .celda-firma { width: 50%; text-align: center; vertical-align: bottom; }
-        .img-firma { height: 70px; display: block; margin: 0 auto; }
-        .nom-firma { color: #7abf5a; font-weight: bold; font-size: 10pt; margin: 3px 0 0 0; }
-        .pue-firma { color: #888; font-size: 8pt; margin: 0; line-height: 1.3; }
     </style>
 </head>
 <body>
-    <div class="cert-container">
-        <img class="bg-image" src="{{ bg_url }}">
 
-        <div class="text-layer header-verde">
-            <div class="otorga">otorga la presente</div>
-            <div class="titulo">constancia</div>
-        </div>
+    <pdf:spacer height="120px" />
 
-        <div class="text-layer bloque-nombre">
-            <div class="a-label">a</div>
-            <div class="nombre-alumno">{{ constancia.participante.nombre_completo }}</div>
-        </div>
+    <div style="text-align: center;">
+        <div style="color: #ffffff; font-size: 14pt;">otorga la presente</div>
+        <div style="color: #ffffff; font-size: 38pt; font-weight: bold; line-height: 1;">CONSTANCIA</div>
+    </div>
 
-        <div class="text-layer bloque-curso">
-            <div class="participo-text">por haber participado activamente en el</div>
-            <div class="curso-nombre">{{ constancia.curso.nombre }}</div>
-        </div>
+    <pdf:spacer height="60px" />
 
-        <div class="text-layer bloque-fecha">
-            Que tuvo lugar el <strong>{{ fecha_texto }}</strong><br>
-            con una duración total de <strong>{{ duracion_formateada }} horas.</strong>
-        </div>
-
-        <div class="bloque-firmas">
-            <table class="tabla-firmas">
-                <tr>
-                    <td class="celda-firma">
-                        {% if firma_g_url %}
-                            <img src="{{ firma_g_url }}" class="img-firma">
-                        {% endif %}
-                        <p class="nom-firma">IB Gibran Pando Morales</p>
-                        <p class="pue-firma">Gerente Nacional de Proyectos de<br>Capacitación y de Servicio.</p>
-                    </td>
-                    <td class="celda-firma">
-                        {% if firma_e_url %}
-                            <img src="{{ firma_e_url }}" class="img-firma">
-                        {% endif %}
-                        <p class="nom-firma">MC Isabel Cecilia Neri Badillo</p>
-                        <p class="pue-firma">Especialista en Aplicaciones de<br>Academia y Service Hub</p>
-                    </td>
-                </tr>
-            </table>
+    <div style="text-align: center;">
+        <div style="font-size: 14pt; color: #555;">a</div>
+        <div style="font-size: 26pt; font-weight: bold; color: #004b31; margin-top: 5px;">
+            {{ constancia.participante.nombre_completo }}
         </div>
     </div>
+
+    <pdf:spacer height="35px" />
+
+    <div style="text-align: center; padding-left: 40px; padding-right: 40px;">
+        <div style="font-size: 12pt; color: #666;">
+            por haber participado activamente en el webinar:
+        </div>
+        <div style="font-size: 20pt; font-weight: bold; color: #7abf5a; margin-top: 5px;">
+            {{ constancia.curso.nombre }}
+        </div>
+    </div>
+
+    <pdf:spacer height="120px" />
+
+    <div style="text-align: center;">
+        <div style="font-size: 12pt;">
+            Realizado el <strong>{{ fecha_texto }}</strong><br>
+            con una duración total de <strong>{{ duracion_formateada }} horas.</strong>
+        </div>
+        <div style="font-size: 9pt; color: #999; margin-top: 5px;">
+            ID de Verificación: {{ constancia.codigo_verificacion }}
+        </div>
+    </div>
+
+    <pdf:spacer height="25px" />
+
+    <table width="100%" border="0" cellpadding="0" cellspacing="0">
+        <tr>
+            <td width="50%" align="center" valign="bottom">
+                {% if firma_g_url %}
+                    <img src="{{ firma_g_url }}" class="img-firma"><br>
+                {% else %}
+                    <pdf:spacer height="70px" /><br>
+                {% endif %}
+                
+                <div style="border-top: 1px solid #7abf5a; width: 220px; margin: 0 auto;"></div>
+                <div style="font-weight: bold; color: #004b31; font-size: 10pt; margin-top: 5px;">
+                    {{ constancia.firma_gerente.nombre_completo|default:"Gibran Pando Morales" }}
+                </div>
+                <div style="font-size: 8pt; color: #888;">
+                    {{ constancia.firma_gerente.cargo }}
+                </div>
+            </td>
+
+            <td width="50%" align="center" valign="bottom">
+                {% if firma_e_url %}
+                    <img src="{{ firma_e_url }}" class="img-firma"><br>
+                {% else %}
+                    <pdf:spacer height="70px" /><br>
+                {% endif %}
+                
+                <div style="border-top: 1px solid #7abf5a; width: 220px; margin: 0 auto;"></div>
+                <div style="font-weight: bold; color: #004b31; font-size: 10pt; margin-top: 5px;">
+                    {{ constancia.firma_especialista.nombre_completo|default:"Especialista" }}
+                </div>
+                <div style="font-size: 8pt; color: #888;">
+                    {{ constancia.firma_especialista.cargo }}
+                </div>
+            </td>
+        </tr>
+    </table>
+
 </body>
 </html>
