@@ -108,8 +108,10 @@ USE_TZ = True
 
 # 7. Archivos Estáticos (CSS, JS) - WhiteNoise
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Vercel guardará los estáticos aquí
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+# Le decimos a Django y Cloudinary que WhiteNoise manejará el diseño
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # 8. Archivos Media (Imágenes) - Cloudinary
 MEDIA_URL = '/media/'

@@ -18,7 +18,7 @@ db.sqlite3
 
 # Archivos estáticos y media (En producción se manejan distinto)
 media/
-staticfiles/
+#staticfiles/
 
 # Archivos de sistema operativo
 .DS_Store
