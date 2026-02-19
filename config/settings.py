@@ -2,7 +2,8 @@ import os
 from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
-
+import cloudinary
+import cloudinary_storage
 
 # 1. Cargar variables de entorno (Lee el archivo .env si existe en tu PC)
 load_dotenv()
@@ -31,15 +32,11 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'cloudinary_storage',
     'django.contrib.staticfiles',
-    # --- CLOUDINARY (El orden es CRÍTICO) ---
-    'cloudinary_storage',  # Debe ir ANTES de staticfiles
     'cloudinary',
-    
-    # Debe ir DESPUÉS de staticfiles
-    # ----------------------------------------
-
     'users',
+
     'widget_tweaks',
 ]
 
@@ -110,8 +107,10 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Vercel guardará los estáticos aquí
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
-# Le decimos a Django y Cloudinary que WhiteNoise manejará el diseño
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+
+
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 # 8. Archivos Media (Imágenes) - Cloudinary
 MEDIA_URL = '/media/'
@@ -133,3 +132,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'users.Evaluador'
 LOGIN_URL = 'users:login'
 LOGOUT_REDIRECT_URL = 'users:login'
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+}
