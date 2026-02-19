@@ -22,12 +22,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key-dev-only')
 # En tu PC será True.
 DEBUG = not IS_VERCEL
 
-ALLOWED_HOSTS = [
-    '.vercel.app', 
-    '.now.sh', 
-    '127.0.0.1', 
-    'localhost'
-]
+ALLOWED_HOSTS = ['*']
 
 # 5. Aplicaciones Instaladas
 INSTALLED_APPS = [
