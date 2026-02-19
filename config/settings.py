@@ -3,27 +3,25 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 
-# 1. Cargar variables de entorno (Local)
+# 1. Cargar variables de entorno
 load_dotenv()
 
 # 2. Directorios
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 3. Seguridad y Entorno
-# Nota: En Vercel tu variable se llama DJANGO_DEBUG
+# 3. Seguridad y Entorno (Sincronizado con tus capturas de Vercel)
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-fallback')
-
 ALLOWED_HOSTS = ['*']
 
-# 4. Aplicaciones (Orden exacto para Cloudinary)
+# 4. Aplicaciones (Orden corregido para Cloudinary)
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'cloudinary_storage',
+    'cloudinary_storage',          # Debe ir antes de staticfiles
     'django.contrib.staticfiles',
     'cloudinary',
     'users',
@@ -32,7 +30,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # Para servir estáticos en Vercel
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -46,7 +44,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -60,7 +58,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# 5. Base de Datos (Neon)
+# 5. Base de Datos (Neon / DATABASE_URL)
 DATABASES = {
     'default': dj_database_url.config(
         default=os.environ.get('DATABASE_URL'),
@@ -75,13 +73,17 @@ TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_TZ = True
 
-# 7. Archivos Estáticos (WhiteNoise)
+# 7. Archivos Estáticos (CSS, JS, Logos)
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+# WhiteNoise para que Vercel encuentre los archivos
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
-# 8. Archivos Media (Cloudinary) - Evita el Error 500
+# 8. Archivos Media (Fotos/Firmas en Cloudinary)
+# Esto evita el error "Read-only file system"
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 CLOUDINARY_STORAGE = {
