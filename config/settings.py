@@ -2,30 +2,21 @@ import os
 from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
-import cloudinary
-import cloudinary_storage
 
-# 1. Cargar variables de entorno (Lee el archivo .env si existe en tu PC)
+# 1. Cargar variables de entorno (Local)
 load_dotenv()
 
-# 2. Definición de directorios
+# 2. Directorios
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 3. Detectar si estamos en Vercel o en Local
-IS_VERCEL = 'VERCEL' in os.environ
-
-# 4. Seguridad
-# SECRET_KEY: Intenta leerla del .env, si no, usa una por defecto (solo para desarrollo)
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key-dev-only')
-
-# DEBUG: 
-# En Vercel (Producción) será False automáticamente.
-# En tu PC será True.
-DEBUG = not IS_VERCEL
+# 3. Seguridad y Entorno
+# Nota: En Vercel tu variable se llama DJANGO_DEBUG
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-fallback')
 
 ALLOWED_HOSTS = ['*']
 
-# 5. Aplicaciones Instaladas
+# 4. Aplicaciones (Orden exacto para Cloudinary)
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -36,13 +27,12 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'cloudinary',
     'users',
-
     'widget_tweaks',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', # <-- Motor de estáticos para Vercel
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -70,71 +60,40 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# 6. Base de Datos Híbrida
-# Vercel inyecta automáticamente la variable POSTGRES_URL
-if IS_VERCEL:
-   DATABASES = {
+# 5. Base de Datos (Neon)
+DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL', 'sqlite:///db.sqlite3'),
+        default=os.environ.get('DATABASE_URL'),
         conn_max_age=600,
         conn_health_checks=True,
     )
 }
-else:
-    # En tu PC usamos la de siempre
-    DATABASES = {
-    'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL'),
-        conn_max_age=600
-    )
-}
-# Validadores de contraseña
-AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',},
-]
 
-# Configuración Regional
+# 6. Configuración Regional
 LANGUAGE_CODE = 'es-mx'
 TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_TZ = True
 
-
-# 7. Archivos Estáticos (CSS, JS) - WhiteNoise
+# 7. Archivos Estáticos (WhiteNoise)
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Vercel guardará los estáticos aquí
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
-
+# 8. Archivos Media (Cloudinary) - Evita el Error 500
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-
-# 8. Archivos Media (Imágenes) - Cloudinary
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
-# Configuración que lee tu .env o las variables de Vercel
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
-    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
-    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
-}
-
-# Esto hace la magia: guarda las fotos en la nube
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# Configuración de Usuarios
-AUTH_USER_MODEL = 'users.Evaluador'
-LOGIN_URL = 'users:login'
-LOGOUT_REDIRECT_URL = 'users:login'
 
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
     'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
     'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
 }
+
+MEDIA_URL = '/media/'
+
+# 9. Configuración de Usuarios
+AUTH_USER_MODEL = 'users.Evaluador'
+LOGIN_URL = 'users:login'
+LOGOUT_REDIRECT_URL = 'users:login'
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
