@@ -31,11 +31,12 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    
+    'django.contrib.staticfiles',
     # --- CLOUDINARY (El orden es CRÍTICO) ---
     'cloudinary_storage',  # Debe ir ANTES de staticfiles
-    'django.contrib.staticfiles',
-    'cloudinary',          # Debe ir DESPUÉS de staticfiles
+    'cloudinary',
+    
+    # Debe ir DESPUÉS de staticfiles
     # ----------------------------------------
 
     'users',
