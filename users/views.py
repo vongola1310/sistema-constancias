@@ -720,7 +720,7 @@ def buscador_constancias_publico(request):
     
     if request.method == 'POST':
         email = request.POST.get('email')
-        hace_7_dias = timezone.now().date() - timedelta(days=7)
+        hace_7_dias = timezone.now().date() - timedelta(days=30)
 
         print(f"DEBUG email buscado: {email}")
         print(f"DEBUG fecha limite: {hace_7_dias}")
