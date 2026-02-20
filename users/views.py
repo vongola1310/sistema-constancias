@@ -715,29 +715,27 @@ from datetime import timedelta
 from django.views.decorators.cache import never_cache # <--- Importar esto
 @never_cache
 def buscador_constancias_publico(request):
-    email_busqueda = request.POST.get('email', '').strip().lower()
-    constancias = []
+    constancias = None
+    email = None
     
-    if request.method == 'POST' and email_busqueda:
+    if request.method == 'POST':
+        email = request.POST.get('email')
         hace_7_dias = timezone.now().date() - timedelta(days=7)
+        
+        # Buscamos las constancias por correo y fecha
         constancias = Constancia.objects.filter(
-            participante__email__iexact=email_busqueda,
+            participante__correo__iexact=email, 
             fecha_emision__gte=hace_7_dias
-        ).order_by('-fecha_emision')
-
-        if constancias.count() == 1:
-            # En lugar de redireccionar a otra vista, generamos los bytes aquí mismo
-            c = constancias.first()
-            pdf_bytes = _generar_pdf_bytes(c) # Usamos tu función auxiliar que ya tenemos
-            
-            response = HttpResponse(pdf_bytes, content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="Constancia_{c.codigo_verificacion}.pdf"'
-            return response
+        )
         
         if not constancias.exists():
-            messages.info(request, "No se encontraron constancias vigentes para este correo.")
+            messages.error(request, "No se encontraron constancias recientes para este correo.")
+            
+    return render(request, 'public/buscador.html', {
+        'constancias': constancias,
+        'email': email
+    })
 
-    return render(request, 'public/buscador.html', {'constancias': constancias, 'email': email_busqueda})
 
 
 from django.contrib.auth import logout as auth_logout
