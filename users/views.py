@@ -731,7 +731,7 @@ def buscador_constancias_publico(request):
         if not constancias.exists():
             messages.error(request, "No se encontraron constancias recientes para este correo.")
             
-    return render(request, 'user/buscador.html', {
+    return render(request, 'users/buscador.html', {
         'constancias': constancias,
         'email': email
     })
