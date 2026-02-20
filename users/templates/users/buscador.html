@@ -38,7 +38,7 @@
                 <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 hover:border-empresa-green transition">
                     <div class="text-sm">
                         <p class="font-bold text-gray-800 leading-tight">{{ c.curso.nombre|truncatechars:40 }}</p>
-                        
+                        <p class="text-gray-400 text-[11px] mt-1 italic">Webinar el {{ c.fecha_termino|date:"d M, Y" }}</p>
                     </div>
                     <a href="{% url 'users:descargar_pdf_publico' c.pk %}" 
                        title="Descargar PDF"
