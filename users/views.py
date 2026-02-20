@@ -721,13 +721,26 @@ def buscador_constancias_publico(request):
     if request.method == 'POST':
         email = request.POST.get('email')
         hace_7_dias = timezone.now().date() - timedelta(days=7)
+
+        print(f"DEBUG email buscado: {email}")
+        print(f"DEBUG fecha limite: {hace_7_dias}")
+
+        
         
         # Buscamos las constancias por correo y fecha
         constancias = Constancia.objects.filter(
             participante__email__iexact=email, 
             fecha_emision__gte=hace_7_dias
         )
-        
+        print(f"DEBUG constancias encontradas: {constancias.count()}")
+
+# Ver todas las constancias de ese email sin filtro de fecha
+        todas = Constancia.objects.filter(participante__email__iexact=email)
+        print(f"DEBUG total sin filtro de fecha: {todas.count()}")
+        for c in todas:
+            print(f"  - {c.curso.nombre} | fecha_emision: {c.fecha_emision}")
+
+
         if not constancias.exists():
             messages.error(request, "No se encontraron constancias recientes para este correo.")
             
