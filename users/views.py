@@ -567,6 +567,10 @@ def _generar_pdf_bytes(constancia):
     # 1. Procesar FONDO (Archivo Estático Local)
     # Construimos la ruta absoluta usando BASE_DIR para que funcione en Windows/Linux
     bg_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'fondo_constancia.png')
+
+    if not os.path.exists(bg_path):
+        bg_path = os.path.join(settings.BASE_DIR, 'staticfiles', 'images', 'fondo_constancia.png')
+    
     bg_url = _imagen_a_base64(bg_path)
 
     # 2. Procesar FIRMAS (Pueden estar en Local o en Cloudinary)

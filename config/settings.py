@@ -21,8 +21,8 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'cloudinary_storage',          # Debe ir antes de staticfiles
     'django.contrib.staticfiles',
+    'cloudinary_storage',          # Debe ir antes de staticfiles
     'cloudinary',
     'users',
     'widget_tweaks',
@@ -80,7 +80,6 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
 # WhiteNoise para que Vercel encuentre los archivos
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # 8. Archivos Media (Fotos/Firmas en Cloudinary)
 # Esto evita el error "Read-only file system"
@@ -89,9 +88,11 @@ STORAGES = {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
+
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
