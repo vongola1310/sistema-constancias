@@ -98,7 +98,7 @@
                 
                 <div style="border-top: 1px solid #7abf5a; width: 220px; margin: 0 auto;"></div>
                 <div style="font-weight: bold; color: #004b31; font-size: 10pt; margin-top: 5px;">
-                    {{ constancia.firma_especialista.nombre_completo|default:"Especialista" }}
+                    {{ constancia.firma_especialista.get_full_name}}
                 </div>
                 <div style="font-size: 8pt; color: #888;">
                     {{ constancia.firma_especialista.cargo }}

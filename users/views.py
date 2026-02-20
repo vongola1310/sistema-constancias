@@ -601,7 +601,11 @@ def _generar_pdf_bytes(constancia):
         'fecha_texto': fecha_texto,
         'duracion_formateada': duracion_formateada,
     }
-
+    
+    print(f"DEBUG especialista: {constancia.firma_especialista}")
+    print(f"DEBUG especialista full_name: {constancia.firma_especialista.get_full_name()}")
+    print(f"DEBUG especialista first_name: {constancia.firma_especialista.first_name}")
+    print(f"DEBUG especialista last_name: {constancia.firma_especialista.last_name}")
     # 5. Renderizar el HTML con los datos
     # Asegúrate de que tu template HTML use: <img src="{{ bg_url }}">
     html_string = render_to_string('pdf/constancia_template.html', context)
