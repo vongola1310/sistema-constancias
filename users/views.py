@@ -724,7 +724,7 @@ def buscador_constancias_publico(request):
         
         # Buscamos las constancias por correo y fecha
         constancias = Constancia.objects.filter(
-            participante__correo__iexact=email, 
+            participante__email__iexact=email, 
             fecha_emision__gte=hace_7_dias
         )
         
