@@ -102,7 +102,7 @@ def change_signature_view(request):
     return render(request, 'users/change_signature.html', {'form': form})
 
 # --- VISTAS DE CREACIÓN Y GESTIÓN DE OBJETOS ---
-
+@login_required
 def crear_evaluador_view(request):
     if request.method == 'POST':
         form = EvaluadorCreationForm(request.POST, request.FILES)
