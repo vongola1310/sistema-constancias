@@ -716,37 +716,28 @@ from django.views.decorators.cache import never_cache # <--- Importar esto
 @never_cache
 def buscador_constancias_publico(request):
     constancias = None
-    email = None
+    email_query = None  # Usamos un nombre diferente para no confundir con el campo
     
     if request.method == 'POST':
-        email = request.POST.get('email')
-        hace_7_dias = timezone.now().date() - timedelta(days=30)
-
-        print(f"DEBUG email buscado: {email}")
-        print(f"DEBUG fecha limite: {hace_7_dias}")
-
+        email_query = request.POST.get('email')
         
+        # 1. Ajustamos la fecha para que cubra desde el 13 de febrero (aprox 40 días)
+        hace_40_dias = timezone.now().date() - timedelta(days=40)
         
-        # Buscamos las constancias por correo y fecha
+        # 2. El FILTRO CORRECTO:
+        # 'participante' es el nombre del campo en el modelo Constancia
+        # 'email' es el nombre del campo en tu modelo Participante
         constancias = Constancia.objects.filter(
-            participante__email__iexact=email, 
-            fecha_emision__gte=hace_7_dias
+            participante__email__iexact=email_query, 
+            fecha_emision__gte=hace_40_dias
         )
-        print(f"DEBUG constancias encontradas: {constancias.count()}")
-
-# Ver todas las constancias de ese email sin filtro de fecha
-        todas = Constancia.objects.filter(participante__email__iexact=email)
-        print(f"DEBUG total sin filtro de fecha: {todas.count()}")
-        for c in todas:
-            print(f"  - {c.curso.nombre} | fecha_emision: {c.fecha_emision}")
-
-
+        
         if not constancias.exists():
-            messages.error(request, "No se encontraron constancias recientes para este correo.")
+            messages.error(request, f"No se encontraron constancias recientes para: {email_query}")
             
     return render(request, 'users/buscador.html', {
         'constancias': constancias,
-        'email': email
+        'email': email_query
     })
 
 
@@ -765,14 +756,25 @@ def logout_view(request):
     return redirect('users:buscador_publico')
 
 def descargar_pdf_publico(request, pk):
-    hace_7_dias = timezone.now().date() - timedelta(days=7)
-    # Buscamos la constancia pero SOLO si es de los últimos 7 días
+    # Calculamos la fecha de corte: hoy menos 20 días
+    hace_40_dias = timezone.now().date() - timedelta(days=40)
+    
     try:
-        constancia = Constancia.objects.get(pk=pk, fecha_emision__gte=hace_7_dias)
+        # IMPORTANTE: Usar la variable hace_20_dias aquí
+        constancia = Constancia.objects.get(pk=pk, fecha_emision__gte=hace_40_dias)
+        
         pdf_bytes = _generar_pdf_bytes(constancia)
-        response = HttpResponse(pdf_bytes, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="Constancia.pdf"'
-        return response
+        
+        if pdf_bytes:
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            # Mejora: El nombre del archivo ahora incluye el nombre del participante
+            filename = f"Constancia_{constancia.participante.nombre_completo}.pdf"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        else:
+            messages.error(request, "Error al generar el archivo PDF.")
+            return redirect('users:buscador_publico')
+
     except Constancia.DoesNotExist:
-        messages.error(request, "El enlace ha expirado o no es válido.")
+        messages.error(request, "El enlace ha expirado o no es válido (máximo 20 días).")
         return redirect('users:buscador_publico')
