@@ -14,31 +14,48 @@
                 <img src="{% static 'images/logo.png' %}" alt="Logo de la Empresa" class="h-10 w-auto">
             </a>
 
-            {% if user.is_authenticated %}
-            <div class="relative">
-                <button id="profile-button" class="block h-10 w-10 rounded-full overflow-hidden border-2 border-gray-300 focus:outline-none focus:border-empresa-green">
-                    {% if user.foto %}
-                        <img class="h-full w-full object-cover" src="{{ user.foto.url }}" alt="Foto de perfil">
-                    {% else %}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            <div class="flex items-center space-x-4">
+                {% if user.is_authenticated %}
+                    
+                    <a href="{% url 'users:crear_evaluador' %}" 
+                       class="hidden md:flex items-center px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700 transition shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                         </svg>
-                    {% endif %}
-                </button>
-                <div id="profile-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 border border-gray-200">
-                    <a href="{% url 'users:change_photo' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Cambiar Foto</a>
-                    <a href="{% url 'users:change_signature' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Cambiar Firma</a>
-                    <div class="border-t border-gray-100"></div>
-                    <form action="{% url 'users:logout' %}" method="post" style="display:inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                            Cerrar Sesión
+                        Nuevo Evaluador
+                    </a>
+
+                    <div class="relative">
+                        <button id="profile-button" class="block h-10 w-10 rounded-full overflow-hidden border-2 border-gray-300 focus:outline-none focus:border-green-600 transition">
+                            {% if user.foto %}
+                                <img class="h-full w-full object-cover" src="{{ user.foto.url }}" alt="Foto de perfil">
+                            {% else %}
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-full w-full text-gray-400 bg-gray-100" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                            {% endif %}
                         </button>
-                    </form>
-                </div>
+                        
+                        <div id="profile-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl py-2 z-20 border border-gray-100">
+                            <div class="px-4 py-2 border-b border-gray-50 mb-1">
+                                <p class="text-xs text-gray-400 font-bold uppercase">Ajustes</p>
+                            </div>
+                            <a href="{% url 'users:change_photo' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Cambiar Foto</a>
+                            <a href="{% url 'users:change_signature' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Cambiar Firma</a>
+                            
+                            <div class="border-t border-gray-100 mt-2"></div>
+                            
+                            <form action="{% url 'users:logout' %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium">
+                                    Cerrar Sesión
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% endif %}
             </div>
-            {% endif %}
-            </nav>
+        </nav>
     </header>
 
     <main class="container mx-auto px-6 py-8">
@@ -46,8 +63,17 @@
             {% if messages %}
                 <div class="mb-6 space-y-2">
                 {% for message in messages %}
-                    <div class="p-4 rounded-md text-white {% if message.tags == 'success' %}bg-empresa-green{% else %}bg-red-500{% endif %}">
-                        {{ message }}
+                    <div class="p-4 rounded-xl text-white shadow-lg flex items-center gap-3 {% if message.tags == 'success' %}bg-green-600{% else %}bg-red-500{% endif %}">
+                        {% if message.tags == 'success' %}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                        {% else %}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        {% endif %}
+                        <span class="font-medium">{{ message }}</span>
                     </div>
                 {% endfor %}
                 </div>
@@ -63,9 +89,12 @@
         const profileMenu = document.getElementById('profile-menu');
         
         if (profileButton && profileMenu) {
-            profileButton.addEventListener('click', () => {
+            profileButton.addEventListener('click', (e) => {
+                e.stopPropagation();
                 profileMenu.classList.toggle('hidden');
             });
+
+            // Cerrar menú al hacer clic fuera
             window.addEventListener('click', (e) => {
                 if (!profileButton.contains(e.target) && !profileMenu.contains(e.target)) {
                     profileMenu.classList.add('hidden');
