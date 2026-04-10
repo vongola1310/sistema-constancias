@@ -12,8 +12,8 @@ urlpatterns = [
     path('dashboard/', views.dashboard_view, name='dashboard'),
     path('login/', views.login_view, name='login'),
    
-
-    path('evaluadores/crear/', views.crear_evaluador_view, name='crear_evaluador'),
+    path('evaluadores/crear/', views.crear_evaluador_view, name='crear_evaluador'), # Debe decir name='crear_evaluador'
+    
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('perfil/cambiar-foto/', views.change_photo_view, name='change_photo'),
     path('perfil/cambiar-firma/', views.change_signature_view, name='change_signature'),
