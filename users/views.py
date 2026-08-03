@@ -29,7 +29,7 @@ from django.core.paginator import Paginator
 import os
 from django.conf import settings
 from .models import Participante, Curso, Constancia
-
+from django.http import HttpResponse, JsonResponse
 from .forms import (
     EvaluadorCreationForm, ProfilePhotoForm, SignatureForm, 
     CursoForm, ParticipanteForm, InstitucionForm, LoteConstanciaForm,
@@ -778,3 +778,21 @@ def descargar_pdf_publico(request, pk):
     except Constancia.DoesNotExist:
         messages.error(request, "El enlace ha expirado o no es válido (máximo 20 días).")
         return redirect('users:buscador_publico')
+
+
+@login_required
+def crear_participante_rapido_view(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
+
+    form = ParticipanteForm(request.POST)
+    if form.is_valid():
+        participante = form.save()
+        return JsonResponse({
+            'ok': True,
+            'id': participante.id,
+            'nombre': str(participante),
+        })
+
+    errores = {campo: [str(e) for e in lista] for campo, lista in form.errors.items()}
+    return JsonResponse({'ok': False, 'errores': errores}, status=400)

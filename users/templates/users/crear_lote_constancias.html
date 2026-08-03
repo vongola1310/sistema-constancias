@@ -6,14 +6,14 @@
     <h2 class="text-3xl font-bold text-gray-800 mb-6">Generar Constancias en Lote</h2>
     <form method="post">
         {% csrf_token %}
-        
+
         <div class="space-y-6">
             {{ form.non_field_errors }}
             <div>
                 <label class="block text-gray-700 font-bold mb-1">{{ form.curso.label_tag }}</label>
                 {{ form.curso|add_class:"w-full px-4 py-2 border border-gray-300 rounded-lg" }}
             </div>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-gray-700 font-bold mb-1">{{ form.fecha_inicio.label_tag }}</label>
@@ -34,11 +34,66 @@
                 {{ form.firma_especialista|add_class:"w-full px-4 py-2 border border-gray-300 rounded-lg" }}
             </div>
         </div>
-        
+
         <div class="mt-6 border-t pt-6">
-            <label class="block text-gray-700 font-bold mb-4">{{ form.participantes.label_tag }}</label>
-            <div class="max-h-60 overflow-y-auto border rounded-lg p-4 space-y-2">
-                {{ form.participantes }}
+            <label class="block text-gray-700 font-bold mb-2">{{ form.participantes.label }}</label>
+
+            <input type="text" id="buscador-participantes"
+                   placeholder="Buscar participante por nombre..."
+                   autocomplete="off"
+                   class="w-full px-4 py-2 mb-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-600">
+
+            <div class="flex items-center justify-between mb-2 text-sm">
+                <span id="contador-participantes" class="text-gray-400"></span>
+                <div class="space-x-3">
+                    <button type="button" id="marcar-visibles" class="text-green-700 font-medium hover:underline">Marcar visibles</button>
+                    <button type="button" id="limpiar-seleccion" class="text-red-600 font-medium hover:underline">Limpiar selección</button>
+                </div>
+            </div>
+
+            <div id="lista-participantes" class="max-h-60 overflow-y-auto border rounded-lg p-4 space-y-1">
+                {% for checkbox in form.participantes %}
+                    <label class="participante-item flex items-center gap-2 py-1 px-2 rounded hover:bg-gray-50 cursor-pointer"
+                           data-nombre="{{ checkbox.choice_label|lower }}">
+                        {{ checkbox.tag }}
+                        <span class="text-gray-700">{{ checkbox.choice_label }}</span>
+                    </label>
+                {% empty %}
+                    <p id="lista-vacia" class="text-gray-400 text-sm">No hay participantes registrados.</p>
+                {% endfor %}
+            </div>
+            <p id="sin-resultados" class="hidden text-gray-400 text-sm mt-2">No se encontraron participantes con ese nombre.</p>
+            {{ form.participantes.errors }}
+
+            <div class="mt-3">
+                <button type="button" id="toggle-alta-rapida" class="text-sm text-green-700 font-medium hover:underline">
+                    + El participante no está: créalo fácil y rápido
+                </button>
+
+                <div id="alta-rapida" class="hidden mt-3 bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p class="text-sm text-gray-600 mb-3">Se agregará a la lista y quedará seleccionado automáticamente.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <input type="text" id="nuevo-nombre" placeholder="Nombre completo *"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-600">
+                        <input type="email" id="nuevo-email" placeholder="Correo electrónico *"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-600">
+                    </div>
+                    <select id="nuevo-titulo" class="w-full mt-3 px-3 py-2 border border-gray-300 rounded-lg bg-white">
+                        <option value="">Sin título</option>
+                        <option value="Lic.">Licenciado(a)</option>
+                        <option value="Ing.">Ingeniero(a)</option>
+                        <option value="Dr.">Doctor(a)</option>
+                        <option value="Mtro.">Maestro(a)</option>
+                        <option value="Q.F.B.">Químico Farmacéutico Biólogo</option>
+                        <option value="Q.B.P.">Químico Bacteriólogo Parasitólogo</option>
+                        <option value="Otro">Otro (sin título)</option>
+                    </select>
+                    <p id="alta-error" class="hidden text-red-600 text-sm mt-2"></p>
+                    <button type="button" id="guardar-participante"
+                            class="mt-3 bg-empresa-green text-white text-sm font-bold py-2 px-4 rounded-lg hover:bg-opacity-90 transition">
+                        Guardar y seleccionar
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -47,4 +102,148 @@
         </button>
     </form>
 </div>
+
+<script>
+    (function () {
+        const input = document.getElementById('buscador-participantes');
+        const lista = document.getElementById('lista-participantes');
+        const items = Array.from(document.querySelectorAll('.participante-item'));
+        const contador = document.getElementById('contador-participantes');
+        const sinResultados = document.getElementById('sin-resultados');
+        const btnMarcar = document.getElementById('marcar-visibles');
+        const btnLimpiar = document.getElementById('limpiar-seleccion');
+
+        const checkboxDe = (item) => item.querySelector('input[type="checkbox"]');
+        const seleccionados = () => items.filter(i => checkboxDe(i).checked).length;
+
+        function actualizarContador() {
+            const visibles = items.filter(i => !i.classList.contains('hidden')).length;
+            contador.textContent = seleccionados() + ' seleccionados \u00b7 ' + visibles + ' visibles';
+            sinResultados.classList.toggle('hidden', visibles !== 0 || items.length === 0);
+        }
+
+        function filtrar() {
+            const q = input.value.trim().toLowerCase();
+            items.forEach(item => {
+                item.classList.toggle('hidden', !item.dataset.nombre.includes(q));
+            });
+            actualizarContador();
+        }
+
+        input.addEventListener('input', filtrar);
+
+        btnMarcar.addEventListener('click', () => {
+            items.filter(i => !i.classList.contains('hidden'))
+                 .forEach(i => { checkboxDe(i).checked = true; });
+            actualizarContador();
+        });
+
+        btnLimpiar.addEventListener('click', () => {
+            items.forEach(i => { checkboxDe(i).checked = false; });
+            actualizarContador();
+        });
+
+        items.forEach(i => checkboxDe(i).addEventListener('change', actualizarContador));
+
+        // --- Alta rapida ---
+        const toggle = document.getElementById('toggle-alta-rapida');
+        const panel = document.getElementById('alta-rapida');
+        const nuevoNombre = document.getElementById('nuevo-nombre');
+        const nuevoEmail = document.getElementById('nuevo-email');
+        const nuevoTitulo = document.getElementById('nuevo-titulo');
+        const altaError = document.getElementById('alta-error');
+        const btnGuardar = document.getElementById('guardar-participante');
+        const listaVacia = document.getElementById('lista-vacia');
+        const url = "{% url 'users:crear_participante_rapido' %}";
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        toggle.addEventListener('click', () => {
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) {
+                nuevoNombre.value = input.value.trim();
+                nuevoNombre.focus();
+            }
+        });
+
+        function mostrarError(msg) {
+            altaError.textContent = msg;
+            altaError.classList.remove('hidden');
+        }
+
+        function agregarParticipante(id, nombre) {
+            if (listaVacia) listaVacia.remove();
+
+            const label = document.createElement('label');
+            label.className = 'participante-item flex items-center gap-2 py-1 px-2 rounded hover:bg-gray-50 cursor-pointer';
+            label.dataset.nombre = nombre.toLowerCase();
+
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.name = 'participantes';
+            cb.value = id;
+            cb.checked = true;
+            cb.id = 'id_participantes_new_' + id;
+            cb.addEventListener('change', actualizarContador);
+
+            const span = document.createElement('span');
+            span.className = 'text-gray-700';
+            span.textContent = nombre;
+
+            label.appendChild(cb);
+            label.appendChild(span);
+            lista.insertBefore(label, lista.firstChild);
+            items.unshift(label);
+        }
+
+        btnGuardar.addEventListener('click', async () => {
+            const nombre = nuevoNombre.value.trim();
+            const email = nuevoEmail.value.trim();
+            altaError.classList.add('hidden');
+
+            if (!nombre || !email) {
+                mostrarError('Nombre y correo son obligatorios.');
+                return;
+            }
+
+            const datos = new FormData();
+            datos.append('nombre_completo', nombre);
+            datos.append('email', email);
+            datos.append('titulo', nuevoTitulo.value);
+            datos.append('csrfmiddlewaretoken', csrftoken);
+
+            btnGuardar.disabled = true;
+            btnGuardar.textContent = 'Guardando...';
+
+            try {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    body: datos,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await resp.json();
+                if (data.ok) {
+                    agregarParticipante(data.id, data.nombre);
+                    nuevoNombre.value = '';
+                    nuevoEmail.value = '';
+                    nuevoTitulo.value = '';
+                    input.value = '';
+                    filtrar();
+                    panel.classList.add('hidden');
+                } else {
+                    const msg = data.errores
+                        ? Object.values(data.errores).flat().join(' ')
+                        : (data.error || 'No se pudo crear el participante.');
+                    mostrarError(msg);
+                }
+            } catch (e) {
+                mostrarError('Error de conexion. Intenta de nuevo.');
+            } finally {
+                btnGuardar.disabled = false;
+                btnGuardar.textContent = 'Guardar y seleccionar';
+            }
+        });
+
+        actualizarContador();
+    })();
+</script>
 {% endblock content %}

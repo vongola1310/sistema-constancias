@@ -51,6 +51,8 @@ urlpatterns = [
     path('descargar/', views.buscador_constancias_publico, name='buscador_publico'),
 
     path('descargar-pdf/<int:pk>/', views.descargar_pdf_publico, name='descargar_pdf_publico'),
+
+    path('participantes/crear-rapido/', views.crear_participante_rapido_view, name='crear_participante_rapido'),
     
 
 ]
