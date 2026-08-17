@@ -68,8 +68,13 @@ class WebinarStep1Form(forms.Form):
         queryset=Evaluador.objects.all(),
         label="Especialista que firma"
     )
-    archivo_csv = forms.FileField(label="Selecciona el archivo CSV de WebEx")
-
+    archivo_csv = forms.FileField(
+        label="Reporte de asistencia (Teams, WebEx, Zoom o Excel)"
+    )
+    archivo_padron = forms.FileField(
+        required=False,
+        label="Excel de inscritos (opcional, para recuperar correos faltantes)"
+    )
 class EncuestaForm(forms.ModelForm):
     class Meta:
         model = EncuestaRespuesta
@@ -95,3 +100,4 @@ class EncuestaForm(forms.ModelForm):
             'comentarios_adicionales': forms.Textarea(attrs={'rows': 3}),
             'interes_productos': forms.CheckboxInput(attrs={'class': 'h-5 w-5'}),
         }
+

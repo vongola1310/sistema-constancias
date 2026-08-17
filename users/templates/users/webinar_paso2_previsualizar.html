@@ -324,6 +324,109 @@
     padding: 32px 16px;
   }
 
+  /* Pendientes de correo */
+  .pend-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .pend-heading h3 {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #9ca3af;
+  }
+
+  .badge-amber { background: #fef3c7; color: #92400e; }
+
+  .pend-list {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 14px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 340px;
+    overflow-y: auto;
+  }
+
+  .pend-list::-webkit-scrollbar { width: 4px; }
+  .pend-list::-webkit-scrollbar-thumb { background: #fcd34d; border-radius: 10px; }
+
+  .pend-card {
+    background: var(--white);
+    border: 1px solid #fde68a;
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+
+  .pend-card .pc-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 7px;
+  }
+
+  .pend-card .pc-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--gray-dark);
+    line-height: 1.2;
+  }
+
+  .pend-card .pc-time {
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #92400e;
+    white-space: nowrap;
+  }
+
+  .pend-card input[type="email"] {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.76rem;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .pend-card input[type="email"]:focus { border-color: var(--green-mid); }
+
+  .pend-hint {
+    font-size: 0.68rem;
+    color: #92400e;
+    margin: 0 0 10px;
+    line-height: 1.45;
+  }
+
+  .pend-sug {
+    font-size: 0.66rem;
+    color: #6b7280;
+    margin-top: 5px;
+  }
+
+  .pend-sug button {
+    background: #f3f4f6;
+    border: none;
+    border-radius: 5px;
+    padding: 2px 6px;
+    font-size: 0.66rem;
+    color: #374151;
+    cursor: pointer;
+    margin-right: 4px;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .pend-sug button:hover { background: #e5e7eb; }
+
   /* Actions */
   .wbn2-actions {
     margin-top: auto;
@@ -481,7 +584,42 @@
 
       <form method="post" class="wbn2-actions">
         {% csrf_token %}
-        <button type="submit" {% if not participantes %}disabled{% endif %} class="btn-gen">
+
+        {% if pendientes %}
+        <div>
+          <div class="pend-heading">
+            <h3>✉️ Falta su correo</h3>
+            <span class="badge badge-amber">{{ pendientes|length }}</span>
+          </div>
+          <p class="pend-hint">
+            Estas personas califican por tiempo, pero el reporte no trae su correo
+            y no se pudo identificar en el Excel de inscritos. Captúralo para
+            incluirlas; si lo dejas vacío, se omiten.
+          </p>
+          <div class="pend-list">
+            {% for p in pendientes %}
+            <div class="pend-card">
+              <div class="pc-top">
+                <span class="pc-name">{{ p.nombre_completo }}</span>
+                <span class="pc-time">{{ p.duracion_total }}m</span>
+              </div>
+              <input type="email" name="correo_pendiente_{{ forloop.counter0 }}"
+                     placeholder="correo@ejemplo.com" autocomplete="off">
+              {% if p.sugerencias %}
+              <div class="pend-sug">
+                Posibles:
+                {% for s in p.sugerencias %}
+                <button type="button" onclick="this.closest('.pend-card').querySelector('input').value='{{ s }}'">{{ s }}</button>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <button type="submit" {% if not participantes and not pendientes %}disabled{% endif %} class="btn-gen">
           Generar Constancias
         </button>
         <a href="{% url 'users:webinar_paso1' %}" class="btn-back">Subir otro archivo</a>

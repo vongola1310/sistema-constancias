@@ -27,6 +27,7 @@ from dateutil.relativedelta import relativedelta
 from django.core.mail import EmailMessage
 from django.core.paginator import Paginator
 import os
+from . import importadores
 from django.conf import settings
 from .models import Participante, Curso, Constancia
 from django.http import HttpResponse, JsonResponse
@@ -39,7 +40,7 @@ from .models import (
     Constancia, Evaluador, Curso, Participante, Institucion,
     EncuestaRespuesta, LeadVenta
 )
-
+from django.db.models import Q
 # --- VISTAS DE AUTENTICACIÓN Y PERFIL ---
 
 def login_view(request):
@@ -222,6 +223,33 @@ def crear_lote_constancias_view(request):
     
 @login_required
 def historial_constancias_view(request):
+    filtro_tipo = request.GET.get('tipo', None)
+    busqueda = request.GET.get('q', '').strip()
+
+    lista_constancias = Constancia.objects.all()
+
+    if filtro_tipo == 'webinar':
+        lista_constancias = lista_constancias.filter(es_webinar=True)
+    elif filtro_tipo == 'curso':
+        lista_constancias = lista_constancias.filter(es_webinar=False)
+
+    if busqueda:
+        lista_constancias = lista_constancias.filter(
+            Q(participante__nombre_completo__icontains=busqueda) |
+            Q(participante__email__icontains=busqueda)
+        )
+
+    constancias_ordenadas = lista_constancias.order_by('-fecha_emision')
+    paginator = Paginator(constancias_ordenadas, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj,
+        'filtro_activo': filtro_tipo,
+        'busqueda': busqueda,
+    }
+    return render(request, 'users/historial_constancias.html', context)
     # Obtenemos el parámetro 'tipo' de la URL. Si no existe, es None.
     filtro_tipo = request.GET.get('tipo', None)
     
@@ -292,13 +320,14 @@ import csv
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-
+MINUTOS_MINIMOS = 30  # Umbral para que un asistente califique
+ 
+ 
 @login_required
 def webinar_paso1_subir_view(request):
     if request.method == 'POST':
         form = WebinarStep1Form(request.POST, request.FILES)
         if form.is_valid():
-            # Guardamos datos del curso
             request.session['webinar_event_data'] = {
                 'curso_nombre': form.cleaned_data['curso_nombre'],
                 'fecha_inicio': form.cleaned_data['fecha_inicio'].isoformat(),
@@ -306,117 +335,153 @@ def webinar_paso1_subir_view(request):
                 'duracion_en_horas': float(form.cleaned_data['duracion_en_horas']),
                 'firma_especialista_id': form.cleaned_data['firma_especialista'].id,
             }
-
-            archivo_csv = form.cleaned_data['archivo_csv']
-            raw_data = archivo_csv.read()
-            decoded_file = None
-            
-            # Intentar decodificar (GoToWebinar suele usar UTF-16 o UTF-8 con BOM)
-            for encoding in ['utf-8-sig', 'utf-16']:
-                try:
-                    decoded_file = raw_data.decode(encoding).splitlines()
-                    break
-                except UnicodeDecodeError:
-                    continue
-
-            if decoded_file is None:
-                messages.error(request, "Error de codificación. Prueba guardar el Excel como 'CSV UTF-8'.")
+ 
+            archivo = form.cleaned_data['archivo_csv']
+ 
+            # 1) Leer el reporte de asistencia (Teams, WebEx, Zoom o Excel)
+            try:
+                asistentes, formato = importadores.parsear_asistencia(
+                    archivo.read(), archivo.name
+                )
+            except ValueError as e:
+                messages.error(request, f"No se pudo leer el archivo: {e}")
                 return redirect('users:webinar_paso1')
-            
-            reader = csv.reader(decoded_file, delimiter='\t')
-            next(reader, None) # Saltar encabezado
-            next(reader, None)  # Saltar fila 2 (nombres de columnas: "Attendee", "Duration"...)
-            participantes_raw = {}
-            for row in reader:
+            except Exception:
+                messages.error(
+                    request,
+                    "El archivo no pudo procesarse. Verifica que sea el reporte "
+                    "de asistencia y no esté dañado."
+                )
+                return redirect('users:webinar_paso1')
+ 
+            if not asistentes:
+                messages.error(request, "El archivo no contiene participantes.")
+                return redirect('users:webinar_paso1')
+ 
+            # 2) Completar correos faltantes con el padrón (opcional)
+            padron = []
+            archivo_padron = form.cleaned_data.get('archivo_padron')
+            if archivo_padron:
                 try:
-                    # Basado en tu archivo: 8:Nombre, 9:Apellido, 10:Institución, 11:Email, 14:Duración
-                    nombre_completo = f"{row[8]} {row[9]}".strip()
-                    institucion = row[10].strip() if row[10] else "N/A"
-                    email = row[11].strip().lower()
-                    minutos = int(row[14].split()[0])
-                    
-                    if not email: continue
-
-                    if email not in participantes_raw:
-                        participantes_raw[email] = {
-                            'nombre_completo': nombre_completo,
-                            'institucion': institucion,
-                            'duracion_total': 0
-                        }
-                    participantes_raw[email]['duracion_total'] += minutos
-                except (IndexError, ValueError):
-                    continue
-
-            # Clasificación
-            calificados = []
-            no_calificados = []
-            for email, data in participantes_raw.items():
+                    padron = importadores.cargar_padron(archivo_padron.read())
+                except Exception:
+                    messages.warning(
+                        request,
+                        "No se pudo leer el Excel de inscritos; se continuó sin él."
+                    )
+ 
+            asistentes, pendientes = importadores.completar_correos(asistentes, padron)
+ 
+            # 3) Clasificar
+            calificados, no_calificados, sin_correo = [], [], []
+            for a in asistentes:
                 info = {
-                    'nombre_completo': data['nombre_completo'],
-                    'email': email,
-                    'institucion': data['institucion'],
-                    'duracion_total': data['duracion_total']
+                    'nombre_completo': a['nombre_completo'],
+                    'email': a['email'],
+                    'institucion': a['institucion'],
+                    'duracion_total': a['duracion_total'],
+                    'estado_correo': a.get('estado_correo', 'original'),
                 }
-                if data['duracion_total'] >= 30:
+                if not a['email']:
+                    if a['duracion_total'] >= MINUTOS_MINIMOS:
+                        info['sugerencias'] = a.get('sugerencias', [])
+                        sin_correo.append(info)
+                elif a['duracion_total'] >= MINUTOS_MINIMOS:
                     calificados.append(info)
                 else:
                     no_calificados.append(info)
-
+ 
+            calificados.sort(key=lambda x: -x['duracion_total'])
+            no_calificados.sort(key=lambda x: -x['duracion_total'])
+            sin_correo.sort(key=lambda x: -x['duracion_total'])
+ 
             request.session['webinar_participantes_calificados'] = calificados
             request.session['webinar_participantes_no_calificados'] = no_calificados
+            request.session['webinar_pendientes'] = sin_correo
+ 
+            recuperados = sum(1 for p in calificados if p['estado_correo'] == 'recuperado')
+            if recuperados:
+                messages.success(
+                    request,
+                    f"Se recuperaron {recuperados} correo(s) desde el Excel de inscritos."
+                )
+            if sin_correo:
+                messages.warning(
+                    request,
+                    f"{len(sin_correo)} asistente(s) califican pero no tienen correo. "
+                    "Complétalos abajo o quedarán fuera."
+                )
+ 
             return redirect('users:webinar_paso2')
-            
-    return render(request, 'users/webinar_paso1_subir.html', {'form': WebinarStep1Form()})
-
-from django.db import transaction
-from .models import Participante, Curso, Constancia
-from .models import Participante, Curso, Constancia, Evaluador
+    else:
+        form = WebinarStep1Form()
+ 
+    return render(request, 'users/webinar_paso1_subir.html', {'form': form})
+ 
+ 
 @login_required
 def webinar_paso2_previsualizar_view(request):
     event_data = request.session.get('webinar_event_data')
     participantes = request.session.get('webinar_participantes_calificados')
     no_calificados = request.session.get('webinar_participantes_no_calificados')
-
+    pendientes = request.session.get('webinar_pendientes', [])
+ 
     if not event_data or participantes is None:
         messages.error(request, "No hay datos para procesar.")
         return redirect('users:webinar_paso1')
-
-    # --- INICIO DE LA LÓGICA POST ---
+ 
     if request.method == 'POST':
+        # --- Incorporar los correos capturados a mano ---
+        agregados = 0
+        for i, p in enumerate(pendientes):
+            correo = request.POST.get(f'correo_pendiente_{i}', '').strip().lower()
+            if not correo:
+                continue
+            if not importadores._es_correo(correo):
+                messages.error(
+                    request,
+                    f"El correo de {p['nombre_completo']} no es válido: {correo}"
+                )
+                return redirect('users:webinar_paso2')
+            if any(x['email'] == correo for x in participantes):
+                continue
+            participantes.append({
+                'nombre_completo': p['nombre_completo'],
+                'email': correo,
+                'institucion': p['institucion'],
+                'duracion_total': p['duracion_total'],
+                'estado_correo': 'manual',
+            })
+            agregados += 1
+ 
+        if not participantes:
+            messages.error(request, "No hay participantes con correo para generar constancias.")
+            return redirect('users:webinar_paso2')
+ 
         try:
             with transaction.atomic():
-                
-                # 1. Crear el Curso en la Base de Datos
-                curso = Curso.objects.create(
-                    nombre=event_data['curso_nombre'],
-                )
-
-                # 2. Obtener los Firmantes (Evaluador)
-                # Especialista: Usamos el ID que guardaste en el paso 1
+                curso = Curso.objects.create(nombre=event_data['curso_nombre'])
+ 
                 firma_e_id = event_data.get('firma_especialista_id')
-                firma_especialista = Evaluador.objects.filter(id=firma_e_id).first() if firma_e_id else None
-
-                # Gerente: Buscamos al Evaluador que tenga es_gerente=True (según tu models.py)
+                firma_especialista = (
+                    Evaluador.objects.filter(id=firma_e_id).first() if firma_e_id else None
+                )
                 firma_gerente = Evaluador.objects.filter(es_gerente=True).first()
-
-                # 3. Crear Participantes y sus Constancias
+ 
                 for p_data in participantes:
                     participante, created = Participante.objects.get_or_create(
                         email=p_data['email'],
                         defaults={
                             'nombre_completo': p_data['nombre_completo'],
-                            'institucion_id': None  # Asumimos None si es texto libre, ajusta si vinculas al modelo Institucion
+                            'institucion_id': None,
                         }
                     )
-
                     if not created:
                         participante.nombre_completo = p_data['nombre_completo']
                         participante.save()
-
-                    import uuid # Asegúrate de que import uuid esté arriba en el archivo
+ 
                     nuevo_codigo = str(uuid.uuid4()).split('-')[0].upper()
-
-                    # Finalmente, creamos la constancia con los datos exactos que pide tu modelo
+ 
                     Constancia.objects.create(
                         participante=participante,
                         curso=curso,
@@ -426,30 +491,38 @@ def webinar_paso2_previsualizar_view(request):
                         firma_gerente=firma_gerente,
                         firma_especialista=firma_especialista,
                         codigo_verificacion=nuevo_codigo,
-                        es_webinar=True # Marcamos que viene del flujo de Webinar
+                        es_webinar=True
                     )
-
-            # 4. Limpiar la sesión 
-            del request.session['webinar_event_data']
-            del request.session['webinar_participantes_calificados']
-            del request.session['webinar_participantes_no_calificados']
-
-            # 5. Mensaje de éxito y redirección
-            messages.success(request, f"¡Éxito! Se generaron {len(participantes)} constancias correctamente.")
+ 
+            for clave in ('webinar_event_data', 'webinar_participantes_calificados',
+                          'webinar_participantes_no_calificados', 'webinar_pendientes'):
+                request.session.pop(clave, None)
+ 
+            extra = f" (incluidos {agregados} capturados a mano)" if agregados else ""
+            messages.success(
+                request,
+                f"¡Éxito! Se generaron {len(participantes)} constancias correctamente{extra}."
+            )
             return redirect('users:historial_constancias')
-
+ 
         except Exception as e:
             messages.error(request, f"Hubo un error al generar las constancias: {str(e)}")
             return redirect('users:webinar_paso2')
-
-
-    # Si es GET (solo cargar la página), muestra el HTML
+ 
     context = {
         'participantes': participantes,
         'no_calificados': no_calificados,
+        'pendientes': pendientes,
         'evento': event_data,
     }
     return render(request, 'users/webinar_paso2_previsualizar.html', context)
+
+    
+
+from django.db import transaction
+from .models import Participante, Curso, Constancia
+from .models import Participante, Curso, Constancia, Evaluador
+
 
 # --- VISTA DE LA ENCUESTA ---
 
