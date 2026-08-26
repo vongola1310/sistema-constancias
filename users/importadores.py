@@ -391,3 +391,215 @@ def completar_correos(asistentes, padron):
             fusionado[clave] = a
 
     return list(fusionado.values()), pendientes
+
+
+# =============================================================================
+#  LIBRO DE CAPACITACIONES: UNA SESIÓN POR HOJA, CON CALIFICACIONES
+# =============================================================================
+#
+#  Estructura esperada de cada hoja:
+#     fila 0    -> título: "Técnica de ELISA, 11 de agosto, remoto, 11:00 a 12:30"
+#     fila 1    -> encabezado de INSCRITOS (Número, Nombre, Institución, Correo, ...)
+#     filas...  -> inscritos
+#     (fila en blanco)
+#     filas...  -> ASISTENTES, con una columna de Calificación
+#     footer    -> "Porcentaje de asistencia", "Asistentes finales", etc.
+#
+#  El encabezado del bloque de asistentes es inconsistente entre hojas
+#  (a veces completo, a veces sólo "Calificación", a veces ausente),
+#  por eso el bloque se detecta por contenido y no por posición.
+# =============================================================================
+
+MESES = {
+    'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4, 'mayo': 5, 'junio': 6,
+    'julio': 7, 'agosto': 8, 'septiembre': 9, 'setiembre': 9, 'octubre': 10,
+    'noviembre': 11, 'diciembre': 12,
+}
+
+FOOTER = ('porcentaje de', 'asistentes finales', 'laboratorios participantes')
+
+
+def _a_numero(valor):
+    """Devuelve float si la celda es una calificación (0-100); si no, None.
+    Rechaza teléfonos ('33 1047 6002', '4432424008') y textos ('NA')."""
+    if valor is None:
+        return None
+    if isinstance(valor, bool):
+        return None
+    if isinstance(valor, (int, float)):
+        n = float(valor)
+    else:
+        t = str(valor).strip().replace('%', '')
+        if not re.match(r'^\d{1,3}(\.\d+)?$', t):
+            return None
+        n = float(t)
+    return n if 0 <= n <= 100 else None
+
+
+def interpretar_titulo(titulo, anio=None):
+    """Extrae curso, fecha y duración del título de la hoja.
+    Ej: 'Técnica de ELISA, 11 de agosto, remoto, 11:00 a 12:30'."""
+    import datetime
+
+    datos = {'curso': '', 'fecha': None, 'duracion_horas': None, 'modalidad': ''}
+    if not titulo:
+        return datos
+
+    partes = [p.strip() for p in str(titulo).split(',') if p.strip()]
+    if partes:
+        datos['curso'] = partes[0].rstrip(')').strip()
+
+    texto = str(titulo).lower()
+
+    m = re.search(r'(\d{1,2})\s+de\s+([a-záéíóú]+)', texto)
+    if m:
+        dia = int(m.group(1))
+        mes = MESES.get(unicodedata.normalize('NFD', m.group(2))
+                        .encode('ascii', 'ignore').decode())
+        if mes:
+            año = anio or datetime.date.today().year
+            a = re.search(r'\b(20\d{2})\b', texto)
+            if a:
+                año = int(a.group(1))
+            try:
+                datos['fecha'] = datetime.date(año, mes, dia)
+            except ValueError:
+                pass
+
+    h = re.search(r'(\d{1,2}):(\d{2})\s*(?:a|-|–)\s*(\d{1,2}):(\d{2})', texto)
+    if h:
+        ini = int(h.group(1)) * 60 + int(h.group(2))
+        fin = int(h.group(3)) * 60 + int(h.group(4))
+        if fin > ini:
+            datos['duracion_horas'] = round((fin - ini) / 60.0, 1)
+
+    for palabra in ('remoto', 'online', 'presencial', 'híbrido', 'hibrido'):
+        if palabra in texto:
+            datos['modalidad'] = palabra
+            break
+
+    return datos
+
+
+def _bloque_calificaciones(filas, inicio, mapa):
+    """Localiza la columna de calificación y las filas de asistentes.
+    Devuelve (col_calificacion, [filas])."""
+    usadas = {mapa.get(c) for c in ('nombre', 'email', 'institucion')}
+    usadas.discard(None)
+
+    candidatas = {}
+    filas_bloque = []
+
+    for fila in filas[inicio:]:
+        if not fila:
+            continue
+        etiqueta = str(fila[1]).strip().lower() if len(fila) > 1 and fila[1] else ''
+        if any(etiqueta.startswith(f) for f in FOOTER):
+            break
+
+        idx_nombre = mapa.get('nombre', 1)
+        nombre = (str(fila[idx_nombre]).strip()
+                  if idx_nombre < len(fila) and fila[idx_nombre] else '')
+        if not nombre or normalizar_nombre(nombre) in ('nombre', 'name'):
+            continue
+
+        filas_bloque.append(fila)
+        for j, celda in enumerate(fila):
+            if j in usadas or j == 0:
+                continue
+            if _a_numero(celda) is not None:
+                candidatas[j] = candidatas.get(j, 0) + 1
+
+    if not candidatas:
+        return None, filas_bloque
+    col = max(candidatas, key=lambda k: candidatas[k])
+    return col, filas_bloque
+
+
+def analizar_libro(archivo, anio=None, calificacion_minima=80):
+    """Analiza un libro de capacitaciones y devuelve una sesión por hoja.
+
+    Cada sesión:
+      {'hoja','titulo','curso','fecha','duracion_horas','modalidad',
+       'inscritos','asistentes':[...],'aprobados','reprobados',
+       'sin_correo','estado'}
+
+    'estado' es 'listo' (hay calificaciones) o 'sin_calificar'.
+    """
+    datos = archivo.read() if hasattr(archivo, 'read') else archivo
+    wb = openpyxl.load_workbook(io.BytesIO(datos), data_only=True, read_only=True)
+
+    sesiones = []
+    for nombre_hoja in wb.sheetnames:
+        filas = [list(f) for f in wb[nombre_hoja].iter_rows(values_only=True)]
+        if not filas:
+            continue
+
+        titulo = str(filas[0][0]).strip() if filas[0] and filas[0][0] else nombre_hoja
+        meta = interpretar_titulo(titulo, anio)
+
+        idx, mapa = _fila_de_encabezado(filas)
+        if idx is None or 'nombre' not in mapa:
+            continue
+
+        # Fin del bloque de inscritos: primera fila sin nombre.
+        i = idx + 1
+        inscritos = 0
+        while i < len(filas):
+            fila = filas[i]
+            col = mapa['nombre']
+            valor = (str(fila[col]).strip()
+                     if fila and col < len(fila) and fila[col] else '')
+            if not valor:
+                break
+            inscritos += 1
+            i += 1
+
+        col_calif, filas_asistentes = _bloque_calificaciones(filas, i, mapa)
+
+        asistentes = []
+        for fila in filas_asistentes:
+            def celda(campo):
+                j = mapa.get(campo)
+                if j is None or j >= len(fila) or fila[j] is None:
+                    return ''
+                return str(fila[j]).strip()
+
+            nombre = celda('nombre')
+            email = celda('email').lower()
+            if not _es_correo(email):
+                email = ''
+
+            calif = None
+            if col_calif is not None and col_calif < len(fila):
+                calif = _a_numero(fila[col_calif])
+
+            asistentes.append({
+                'nombre_completo': nombre,
+                'email': email,
+                'institucion': celda('institucion') or 'N/A',
+                'calificacion': calif,
+                'aprueba': calif is not None and calif >= calificacion_minima,
+            })
+
+        con_calif = [a for a in asistentes if a['calificacion'] is not None]
+        aprobados = [a for a in asistentes if a['aprueba'] and a['email']]
+
+        sesiones.append({
+            'hoja': nombre_hoja,
+            'titulo': titulo,
+            'curso': meta['curso'] or nombre_hoja,
+            'fecha': meta['fecha'],
+            'duracion_horas': meta['duracion_horas'],
+            'modalidad': meta['modalidad'],
+            'inscritos': inscritos,
+            'asistentes': asistentes,
+            'con_calificacion': len(con_calif),
+            'aprobados': len(aprobados),
+            'reprobados': len([a for a in asistentes
+                               if a['calificacion'] is not None and not a['aprueba']]),
+            'sin_correo': len([a for a in asistentes if a['aprueba'] and not a['email']]),
+            'estado': 'listo' if con_calif else 'sin_calificar',
+        })
+
+    return sesiones

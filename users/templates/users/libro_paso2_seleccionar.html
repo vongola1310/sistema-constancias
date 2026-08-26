@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  .lib * { box-sizing: border-box; }
+  .lib {
+    max-width: 1080px;
+    margin: 2rem auto;
+    background: #fff;
+    border-radius: 20px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 8px 34px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+  .lib-head {
+    padding: 26px 32px 22px;
+    border-bottom: 1px solid #e5e7eb;
+    background: linear-gradient(160deg, #f4fbf7 0%, #fff 60%);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .lib-head h2 { margin: 0 0 4px; font-size: 1.5rem; font-weight: 800; color: #111827; }
+  .lib-head p { margin: 0; font-size: 0.82rem; color: #6b7280; }
+  .lib-total { text-align: right; }
+  .lib-total .n { font-size: 2rem; font-weight: 800; color: #1a7a4a; line-height: 1; }
+  .lib-total .l { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 1.4px; color: #9ca3af; }
+
+  .lib-tools {
+    padding: 14px 32px;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    font-size: 0.78rem;
+  }
+  .lib-tools button {
+    background: none; border: none; color: #1a7a4a;
+    font-weight: 600; cursor: pointer; font-size: 0.78rem; padding: 0;
+  }
+  .lib-tools button:hover { text-decoration: underline; }
+  .lib-tools .sep { color: #d1d5db; }
+
+  .lib-body { padding: 20px 32px 28px; display: flex; flex-direction: column; gap: 12px; }
+
+  .ses {
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 16px 18px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    transition: border-color .15s, background .15s;
+  }
+  .ses.ok { cursor: pointer; }
+  .ses.ok:hover { background: #f8fdfa; border-color: #a7d9bf; }
+  .ses.bloq { background: #fafafa; opacity: .75; }
+  .ses input[type=checkbox] { margin-top: 4px; width: 17px; height: 17px; accent-color: #1a7a4a; }
+
+  .ses-main { flex: 1; min-width: 0; }
+  .ses-title { font-size: 0.98rem; font-weight: 700; color: #111827; margin-bottom: 3px; }
+  .ses-meta { font-size: 0.74rem; color: #6b7280; margin-bottom: 9px; }
+  .ses-stats { display: flex; gap: 7px; flex-wrap: wrap; }
+
+  .chip {
+    font-size: 0.68rem; font-weight: 600;
+    padding: 3px 9px; border-radius: 20px;
+    background: #f3f4f6; color: #4b5563;
+  }
+  .chip.green { background: #d1fae5; color: #065f46; }
+  .chip.red   { background: #fee2e2; color: #991b1b; }
+  .chip.amber { background: #fef3c7; color: #92400e; }
+
+  .ses-badge {
+    font-size: 0.64rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; padding: 4px 10px; border-radius: 6px; white-space: nowrap;
+  }
+  .badge-listo { background: #d1fae5; color: #065f46; }
+  .badge-pend  { background: #f3f4f6; color: #6b7280; }
+
+  .detalle { margin-top: 11px; border-top: 1px dashed #e5e7eb; padding-top: 10px; }
+  .detalle summary {
+    font-size: 0.72rem; color: #1a7a4a; cursor: pointer;
+    font-weight: 600; list-style: none;
+  }
+  .detalle summary::-webkit-details-marker { display: none; }
+  .detalle summary:hover { text-decoration: underline; }
+  .detalle table { width: 100%; border-collapse: collapse; margin-top: 9px; }
+  .detalle th {
+    text-align: left; font-size: 0.62rem; text-transform: uppercase;
+    letter-spacing: 1px; color: #9ca3af; padding: 5px 8px;
+  }
+  .detalle td { padding: 5px 8px; font-size: 0.76rem; border-top: 1px solid #f3f4f6; }
+  .detalle .no { color: #9ca3af; }
+  .cal { font-weight: 700; }
+  .cal.si { color: #065f46; }
+  .cal.no { color: #b91c1c; }
+
+  .lib-foot {
+    padding: 18px 32px 26px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+  .btn-gen {
+    background: #1a7a4a; color: #fff; border: none;
+    padding: 14px 30px; border-radius: 12px;
+    font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(26,122,74,.28);
+    transition: background .15s, transform .15s;
+  }
+  .btn-gen:hover:not(:disabled) { background: #166139; transform: translateY(-1px); }
+  .btn-gen:disabled { background: #d1d5db; color: #9ca3af; cursor: not-allowed; box-shadow: none; }
+  .btn-back { font-size: 0.78rem; color: #9ca3af; text-decoration: none; }
+  .btn-back:hover { color: #1a7a4a; text-decoration: underline; }
+  #resumen { font-size: 0.8rem; color: #6b7280; }
+  #resumen b { color: #1a7a4a; }
+
+  @media (max-width: 700px) {
+    .lib-head, .lib-tools, .lib-body, .lib-foot { padding-left: 18px; padding-right: 18px; }
+    .lib-total { text-align: left; }
+  }
+</style>
+
+<form method="post" class="lib">
+  {% csrf_token %}
+
+  <div class="lib-head">
+    <div>
+      <h2>Selecciona las sesiones</h2>
+      <p>Se generará constancia a quien tenga <strong>{{ minima }} o más</strong> de calificación y correo registrado.</p>
+    </div>
+    <div class="lib-total">
+      <div class="n">{{ total_disponibles }}</div>
+      <div class="l">Constancias posibles</div>
+    </div>
+  </div>
+
+  <div class="lib-tools">
+    <button type="button" id="todas">Seleccionar todas las listas</button>
+    <span class="sep">|</span>
+    <button type="button" id="ninguna">Limpiar</button>
+  </div>
+
+  <div class="lib-body">
+    {% for s in sesiones %}
+    <label class="ses {% if s.seleccionable %}ok{% else %}bloq{% endif %}">
+      {% if s.seleccionable %}
+        <input type="checkbox" name="hojas" value="{{ s.hoja }}" class="chk">
+      {% else %}
+        <input type="checkbox" disabled>
+      {% endif %}
+
+      <div class="ses-main">
+        <div class="ses-title">{{ s.curso }}</div>
+        <div class="ses-meta">
+          Hoja "{{ s.hoja }}"
+          {% if s.fecha %} · {{ s.fecha }}{% endif %}
+          {% if s.duracion_horas %} · {{ s.duracion_horas }} h{% endif %}
+          {% if s.modalidad %} · {{ s.modalidad }}{% endif %}
+        </div>
+        <div class="ses-stats">
+          <span class="chip">{{ s.inscritos }} inscritos</span>
+          <span class="chip">{{ s.con_calificacion }} calificados</span>
+          <span class="chip green">{{ s.aprobados }} aprueban</span>
+          {% if s.reprobados %}<span class="chip red">{{ s.reprobados }} no aprueban</span>{% endif %}
+          {% if s.sin_correo %}<span class="chip amber">{{ s.sin_correo }} sin correo</span>{% endif %}
+        </div>
+
+        {% if s.personas %}
+        <details class="detalle">
+          <summary>Ver detalle de asistentes</summary>
+          <table>
+            <thead>
+              <tr><th>Nombre</th><th>Correo</th><th>Calificación</th></tr>
+            </thead>
+            <tbody>
+              {% for p in s.personas %}
+              <tr>
+                <td>{{ p.nombre_completo }}</td>
+                <td>{% if p.email %}{{ p.email }}{% else %}<span class="no">sin correo</span>{% endif %}</td>
+                <td>
+                  {% if p.calificacion != None %}
+                    <span class="cal {% if p.aprueba %}si{% else %}no{% endif %}">{{ p.calificacion }}</span>
+                  {% else %}
+                    <span class="no">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </details>
+        {% endif %}
+      </div>
+
+      <span class="ses-badge {% if s.seleccionable %}badge-listo{% else %}badge-pend{% endif %}">
+        {% if s.seleccionable %}Listo{% elif s.estado == 'sin_calificar' %}Sin calificar{% elif not s.fecha %}Sin fecha{% else %}Nadie aprueba{% endif %}
+      </span>
+    </label>
+    {% endfor %}
+  </div>
+
+  <div class="lib-foot">
+    <span id="resumen">Ninguna sesión seleccionada.</span>
+    <div style="display:flex;gap:16px;align-items:center;">
+      <a href="{% url 'users:libro_paso1' %}" class="btn-back">Subir otro archivo</a>
+      <button type="submit" id="btn" class="btn-gen" disabled>Generar Constancias</button>
+    </div>
+  </div>
+</form>
+
+<script>
+  (function () {
+    const chks = Array.from(document.querySelectorAll('.chk'));
+    const resumen = document.getElementById('resumen');
+    const btn = document.getElementById('btn');
+
+    function actualizar() {
+      const n = chks.filter(c => c.checked).length;
+      btn.disabled = n === 0;
+      resumen.innerHTML = n === 0
+        ? 'Ninguna sesión seleccionada.'
+        : '<b>' + n + '</b> sesión(es) seleccionada(s).';
+    }
+
+    chks.forEach(c => c.addEventListener('change', actualizar));
+    document.getElementById('todas').addEventListener('click', () => {
+      chks.forEach(c => { c.checked = true; }); actualizar();
+    });
+    document.getElementById('ninguna').addEventListener('click', () => {
+      chks.forEach(c => { c.checked = false; }); actualizar();
+    });
+    actualizar();
+  })();
+</script>
+{% endblock content %}

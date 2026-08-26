@@ -53,6 +53,10 @@ urlpatterns = [
     path('descargar-pdf/<int:pk>/', views.descargar_pdf_publico, name='descargar_pdf_publico'),
 
     path('participantes/crear-rapido/', views.crear_participante_rapido_view, name='crear_participante_rapido'),
+
+    path('libro/paso-1-subir/', views.libro_paso1_subir_view, name='libro_paso1'),
+
+    path('libro/paso-2-seleccionar/', views.libro_paso2_seleccionar_view, name='libro_paso2'),
     
 
 ]

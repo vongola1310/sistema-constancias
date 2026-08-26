@@ -101,3 +101,28 @@ class EncuestaForm(forms.ModelForm):
             'interes_productos': forms.CheckboxInput(attrs={'class': 'h-5 w-5'}),
         }
 
+class LibroCapacitacionesForm(forms.Form):
+    archivo = forms.FileField(
+        label="Libro de capacitaciones (.xlsx)",
+        help_text="Cada hoja del Excel se detectará como una sesión distinta."
+    )
+    anio = forms.IntegerField(
+        label="Año de las sesiones",
+        initial=2026,
+        min_value=2020,
+        max_value=2100,
+        help_text="Los títulos de las hojas no incluyen el año."
+    )
+    calificacion_minima = forms.DecimalField(
+        label="Calificación mínima para aprobar",
+        initial=80,
+        max_digits=5,
+        decimal_places=1,
+        min_value=0,
+        max_value=100
+    )
+    firma_especialista = forms.ModelChoiceField(
+        queryset=Evaluador.objects.all(),
+        label="Especialista que firma"
+    )
+

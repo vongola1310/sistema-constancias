@@ -34,8 +34,9 @@ from django.http import HttpResponse, JsonResponse
 from .forms import (
     EvaluadorCreationForm, ProfilePhotoForm, SignatureForm, 
     CursoForm, ParticipanteForm, InstitucionForm, LoteConstanciaForm,
-    WebinarStep1Form, EncuestaForm
+    WebinarStep1Form, EncuestaForm, LibroCapacitacionesForm
 )
+from . import importadores
 from .models import (
     Constancia, Evaluador, Curso, Participante, Institucion,
     EncuestaRespuesta, LeadVenta
@@ -869,3 +870,163 @@ def crear_participante_rapido_view(request):
 
     errores = {campo: [str(e) for e in lista] for campo, lista in form.errors.items()}
     return JsonResponse({'ok': False, 'errores': errores}, status=400)
+
+
+@login_required
+def libro_paso1_subir_view(request):
+    """Sube el libro de capacitaciones y detecta las sesiones (hojas)."""
+    if request.method == 'POST':
+        form = LibroCapacitacionesForm(request.POST, request.FILES)
+        if form.is_valid():
+            archivo = form.cleaned_data['archivo']
+            anio = form.cleaned_data['anio']
+            minima = float(form.cleaned_data['calificacion_minima'])
+ 
+            try:
+                sesiones = importadores.analizar_libro(
+                    archivo.read(), anio=anio, calificacion_minima=minima
+                )
+            except Exception:
+                messages.error(
+                    request,
+                    "No se pudo leer el archivo. Verifica que sea un Excel (.xlsx) válido."
+                )
+                return redirect('users:libro_paso1')
+ 
+            if not sesiones:
+                messages.error(
+                    request,
+                    "No se detectó ninguna sesión. Revisa que las hojas tengan "
+                    "las columnas 'Nombre' y 'Correo'."
+                )
+                return redirect('users:libro_paso1')
+ 
+            # Serializamos para la sesión de Django (las fechas van como texto).
+            serializado = []
+            for s in sesiones:
+                serializado.append({
+                    'hoja': s['hoja'],
+                    'curso': s['curso'],
+                    'fecha': s['fecha'].isoformat() if s['fecha'] else None,
+                    'duracion_horas': s['duracion_horas'] or 1.0,
+                    'modalidad': s['modalidad'],
+                    'inscritos': s['inscritos'],
+                    'con_calificacion': s['con_calificacion'],
+                    'aprobados': s['aprobados'],
+                    'reprobados': s['reprobados'],
+                    'sin_correo': s['sin_correo'],
+                    'estado': s['estado'],
+                    'seleccionable': (
+                        s['estado'] == 'listo' and s['aprobados'] > 0 and s['fecha'] is not None
+                    ),
+                    'personas': [
+                        {
+                            'nombre_completo': a['nombre_completo'],
+                            'email': a['email'],
+                            'institucion': a['institucion'],
+                            'calificacion': a['calificacion'],
+                            'aprueba': a['aprueba'],
+                        }
+                        for a in s['asistentes']
+                    ],
+                })
+ 
+            request.session['libro_sesiones'] = serializado
+            request.session['libro_config'] = {
+                'calificacion_minima': minima,
+                'firma_especialista_id': form.cleaned_data['firma_especialista'].id,
+            }
+            return redirect('users:libro_paso2')
+    else:
+        form = LibroCapacitacionesForm()
+ 
+    return render(request, 'users/libro_paso1_subir.html', {'form': form})
+ 
+ 
+@login_required
+def libro_paso2_seleccionar_view(request):
+    """Elige qué sesiones procesar y genera las constancias."""
+    sesiones = request.session.get('libro_sesiones')
+    config = request.session.get('libro_config')
+ 
+    if not sesiones or not config:
+        messages.error(request, "No hay datos para procesar. Sube el archivo de nuevo.")
+        return redirect('users:libro_paso1')
+ 
+    if request.method == 'POST':
+        elegidas = request.POST.getlist('hojas')
+        if not elegidas:
+            messages.error(request, "Selecciona al menos una sesión.")
+            return redirect('users:libro_paso2')
+ 
+        firma_especialista = Evaluador.objects.filter(
+            id=config['firma_especialista_id']
+        ).first()
+        firma_gerente = Evaluador.objects.filter(es_gerente=True).first()
+ 
+        total = 0
+        resumen = []
+ 
+        try:
+            with transaction.atomic():
+                for s in sesiones:
+                    if s['hoja'] not in elegidas or not s['seleccionable']:
+                        continue
+ 
+                    curso = Curso.objects.create(nombre=s['curso'])
+                    generadas = 0
+ 
+                    for p in s['personas']:
+                        if not p['aprueba'] or not p['email']:
+                            continue
+ 
+                        participante, creado = Participante.objects.get_or_create(
+                            email=p['email'],
+                            defaults={
+                                'nombre_completo': p['nombre_completo'],
+                                'institucion_id': None,
+                            }
+                        )
+                        if not creado:
+                            participante.nombre_completo = p['nombre_completo']
+                            participante.save()
+ 
+                        nuevo_codigo = str(uuid.uuid4()).split('-')[0].upper()
+ 
+                        Constancia.objects.create(
+                            participante=participante,
+                            curso=curso,
+                            fecha_inicio=s['fecha'],
+                            fecha_termino=s['fecha'],
+                            duracion_en_horas=s['duracion_horas'],
+                            firma_gerente=firma_gerente,
+                            firma_especialista=firma_especialista,
+                            codigo_verificacion=nuevo_codigo,
+                            es_webinar=True,
+                        )
+                        generadas += 1
+ 
+                    total += generadas
+                    resumen.append(f"{s['curso']} ({generadas})")
+ 
+            request.session.pop('libro_sesiones', None)
+            request.session.pop('libro_config', None)
+ 
+            messages.success(
+                request,
+                f"Se generaron {total} constancias de {len(resumen)} sesión(es): "
+                + ", ".join(resumen)
+            )
+            return redirect('users:historial_constancias')
+ 
+        except Exception as e:
+            messages.error(request, f"Error al generar las constancias: {str(e)}")
+            return redirect('users:libro_paso2')
+ 
+    listas = [s for s in sesiones if s['seleccionable']]
+    context = {
+        'sesiones': sesiones,
+        'total_disponibles': sum(s['aprobados'] for s in listas),
+        'minima': config['calificacion_minima'],
+    }
+    return render(request, 'users/libro_paso2_seleccionar.html', context)
