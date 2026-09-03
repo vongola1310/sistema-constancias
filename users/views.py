@@ -947,44 +947,66 @@ def libro_paso1_subir_view(request):
  
  
 @login_required
+
+
+@login_required
 def libro_paso2_seleccionar_view(request):
     """Elige qué sesiones procesar y genera las constancias."""
     sesiones = request.session.get('libro_sesiones')
     config = request.session.get('libro_config')
- 
+
     if not sesiones or not config:
         messages.error(request, "No hay datos para procesar. Sube el archivo de nuevo.")
         return redirect('users:libro_paso1')
- 
+
     if request.method == 'POST':
         elegidas = request.POST.getlist('hojas')
         if not elegidas:
             messages.error(request, "Selecciona al menos una sesión.")
             return redirect('users:libro_paso2')
- 
+
         firma_especialista = Evaluador.objects.filter(
             id=config['firma_especialista_id']
         ).first()
         firma_gerente = Evaluador.objects.filter(es_gerente=True).first()
- 
+
         total = 0
+        omitidas = 0
+        repetidas = 0
         resumen = []
- 
+
         try:
             with transaction.atomic():
                 for s in sesiones:
                     if s['hoja'] not in elegidas or not s['seleccionable']:
                         continue
- 
-                    curso = Curso.objects.create(nombre=s['curso'])
-                    generadas = 0
- 
+
+                    # --- 1) Quitar repetidos dentro de la hoja ---
+                    unicos = {}
                     for p in s['personas']:
                         if not p['aprueba'] or not p['email']:
                             continue
- 
+                        clave = p['email'].strip().lower()
+                        anterior = unicos.get(clave)
+                        if anterior is None:
+                            unicos[clave] = p
+                        else:
+                            repetidas += 1
+                            nueva = p.get('calificacion') or 0
+                            vieja = anterior.get('calificacion') or 0
+                            if nueva > vieja:
+                                unicos[clave] = p
+
+                    if not unicos:
+                        continue
+
+                    # --- 2) Un curso por hoja, reutilizable ---
+                    curso, _ = Curso.objects.get_or_create(nombre=s['curso'])
+                    generadas = 0
+
+                    for email, p in unicos.items():
                         participante, creado = Participante.objects.get_or_create(
-                            email=p['email'],
+                            email=email,
                             defaults={
                                 'nombre_completo': p['nombre_completo'],
                                 'institucion_id': None,
@@ -993,40 +1015,46 @@ def libro_paso2_seleccionar_view(request):
                         if not creado:
                             participante.nombre_completo = p['nombre_completo']
                             participante.save()
- 
-                        nuevo_codigo = str(uuid.uuid4()).split('-')[0].upper()
- 
-                        Constancia.objects.create(
+
+                        # --- 3) No duplicar constancias ya existentes ---
+                        constancia, nueva = Constancia.objects.get_or_create(
                             participante=participante,
                             curso=curso,
                             fecha_inicio=s['fecha'],
-                            fecha_termino=s['fecha'],
-                            duracion_en_horas=s['duracion_horas'],
-                            firma_gerente=firma_gerente,
-                            firma_especialista=firma_especialista,
-                            codigo_verificacion=nuevo_codigo,
-                            es_webinar=True,
-                            tipo='teorica'
+                            defaults={
+                                'fecha_termino': s['fecha'],
+                                'duracion_en_horas': s['duracion_horas'],
+                                'firma_gerente': firma_gerente,
+                                'firma_especialista': firma_especialista,
+                                'codigo_verificacion': str(uuid.uuid4()).split('-')[0].upper(),
+                                'es_webinar': True,
+                                'tipo': 'teorica',
+                            }
                         )
-                        generadas += 1
- 
+                        if nueva:
+                            generadas += 1
+                        else:
+                            omitidas += 1
+
                     total += generadas
                     resumen.append(f"{s['curso']} ({generadas})")
- 
+
             request.session.pop('libro_sesiones', None)
             request.session.pop('libro_config', None)
- 
-            messages.success(
-                request,
-                f"Se generaron {total} constancias de {len(resumen)} sesión(es): "
-                + ", ".join(resumen)
-            )
+
+            texto = f"Se generaron {total} constancias de {len(resumen)} sesión(es): " \
+                    + ", ".join(resumen)
+            if omitidas:
+                texto += f" · {omitidas} ya existían y se omitieron"
+            if repetidas:
+                texto += f" · {repetidas} fila(s) repetida(s) en el Excel"
+            messages.success(request, texto)
             return redirect('users:historial_constancias')
- 
+
         except Exception as e:
             messages.error(request, f"Error al generar las constancias: {str(e)}")
             return redirect('users:libro_paso2')
- 
+
     listas = [s for s in sesiones if s['seleccionable']]
     context = {
         'sesiones': sesiones,
