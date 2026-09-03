@@ -208,7 +208,9 @@ def crear_lote_constancias_view(request):
                         'firma_gerente': gerente,
                         'firma_especialista': especialista,
                         'codigo_verificacion': str(uuid.uuid4()).split('-')[0].upper(),
-                        'es_webinar': False
+                        'es_webinar': False,
+                        'tipo': 'curso'
+                        
                     }
                 )
                 if created:
@@ -492,7 +494,8 @@ def webinar_paso2_previsualizar_view(request):
                         firma_gerente=firma_gerente,
                         firma_especialista=firma_especialista,
                         codigo_verificacion=nuevo_codigo,
-                        es_webinar=True
+                        es_webinar=True,
+                         tipo='webinar'
                     )
  
             for clave in ('webinar_event_data', 'webinar_participantes_calificados',
@@ -1003,6 +1006,7 @@ def libro_paso2_seleccionar_view(request):
                             firma_especialista=firma_especialista,
                             codigo_verificacion=nuevo_codigo,
                             es_webinar=True,
+                            tipo='teorica'
                         )
                         generadas += 1
  

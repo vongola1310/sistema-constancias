@@ -93,6 +93,17 @@ class Constancia(models.Model):
     fecha_emision = models.DateField(auto_now_add=True, verbose_name="Fecha de Emisión")
     codigo_verificacion = models.CharField(max_length=20, unique=True, blank=True, verbose_name="Código de Verificación")
     es_webinar = models.BooleanField(default=False, verbose_name="¿Es de Webinar?")
+    TIPOS_CONSTANCIA = [
+        ('curso', 'Curso'),
+        ('webinar', 'Webinar'),
+        ('teorica', 'Capacitación teórica'),
+    ]
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPOS_CONSTANCIA,
+        default='curso',
+        verbose_name="Tipo de constancia"
+    )
     fecha_vencimiento = models.DateField(null=True, blank=True, verbose_name="Fecha de Vencimiento")
     token_encuesta = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
 

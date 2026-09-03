@@ -50,7 +50,13 @@
 
     <div style="text-align: center; padding-left: 40px; padding-right: 40px;">
         <div style="font-size: 12pt; color: #666;">
-            por haber participado activamente en el webinar:
+             {% if constancia.tipo == 'webinar' %}
+                por haber participado activamente en el webinar:
+            {% elif constancia.tipo == 'teorica' %}
+                por haber participado activamente en la capacitación teórica:
+            {% else %}
+                por haber participado activamente en el curso:
+            {% endif %}
         </div>
         <div style="font-size: 20pt; font-weight: bold; color: #7abf5a; margin-top: 5px;">
             {{ constancia.curso.nombre }}
