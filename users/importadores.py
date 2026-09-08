@@ -516,15 +516,97 @@ def _bloque_calificaciones(filas, inicio, mapa):
     return col, filas_bloque
 
 
+# --- Meses abreviados, para leer la fecha del nombre de la hoja ---
+MESES_CORTOS = {
+    'ene': 1, 'feb': 2, 'mar': 3, 'abr': 4, 'may': 5, 'jun': 6,
+    'jul': 7, 'ago': 8, 'sep': 9, 'set': 9, 'oct': 10, 'nov': 11, 'dic': 12,
+}
+
+# Etiquetas de los metadatos que algunos formatos ponen arriba de la hoja
+ETIQUETAS_META = {
+    'curso': ('nombre de la capacitacion', 'nombre del curso', 'capacitacion',
+              'curso', 'tema', 'nombre'),
+    'modalidad': ('modalidad',),
+    'duracion': ('duracion', 'duracion de la sesion'),
+    'fecha': ('fecha', 'fecha de la sesion'),
+}
+
+
+def fecha_desde_hoja(nombre_hoja, anio=None):
+    """Interpreta la fecha a partir del nombre de la hoja.
+    Ej: '07 sep mat' -> 7/09,  '11 ago' -> 11/08,  '31 ago s2' -> 31/08."""
+    import datetime
+
+    t = unicodedata.normalize('NFD', str(nombre_hoja).lower())
+    t = ''.join(c for c in t if unicodedata.category(c) != 'Mn')
+    t = re.sub(r'[^a-z0-9\s]', ' ', t)
+    t = re.sub(r'\s+', ' ', t).strip()
+
+    m = re.search(r'(\d{1,2})\s*([a-z]{3,})', t) or re.search(r'([a-z]{3,})\s*(\d{1,2})', t)
+    if not m:
+        return None
+
+    a, b = m.group(1), m.group(2)
+    dia, texto_mes = (a, b) if a.isdigit() else (b, a)
+
+    mes = MESES.get(texto_mes) or MESES_CORTOS.get(texto_mes[:3])
+    if not mes:
+        return None
+
+    try:
+        return datetime.date(anio or datetime.date.today().year, int(dia), 1).replace(
+            day=int(dia), month=mes
+        )
+    except ValueError:
+        return None
+
+
+def _leer_metadatos(filas, limite=8):
+    """Lee metadatos escritos como 'Etiqueta | Valor' en las primeras filas."""
+    meta = {}
+    for fila in filas[:limite]:
+        if not fila or len(fila) < 2 or fila[0] is None or fila[1] is None:
+            continue
+        etiqueta = normalizar_nombre(str(fila[0]))
+        valor = str(fila[1]).strip()
+        if not etiqueta or not valor:
+            continue
+        for campo, opciones in ETIQUETAS_META.items():
+            if campo in meta:
+                continue
+            if any(etiqueta == o or etiqueta.startswith(o) for o in opciones):
+                meta[campo] = valor
+                break
+    return meta
+
+
+def _horas_desde_texto(texto):
+    """'1h' -> 1.0 ; '1h 30' -> 1.5 ; '90 min' -> 1.5 ; '1:30' -> 1.5."""
+    if texto is None:
+        return None
+    if isinstance(texto, (int, float)):
+        return float(texto)
+    minutos = parsear_duracion(texto)
+    if minutos:
+        return round(minutos / 60.0, 2)
+    return None
+
+
 def analizar_libro(archivo, anio=None, calificacion_minima=80):
     """Analiza un libro de capacitaciones y devuelve una sesión por hoja.
+
+    Reconoce dos disposiciones:
+      A) Título en la fila 0, bloque de INSCRITOS y debajo el de ASISTENTES
+         con calificación (formato de agosto).
+      B) Metadatos arriba ('Nombre de la capacitación', 'Modalidad',
+         'Duración') y un único bloque de asistentes con calificación
+         (formato de septiembre). Aquí la fecha suele venir en el nombre
+         de la hoja.
 
     Cada sesión:
       {'hoja','titulo','curso','fecha','duracion_horas','modalidad',
        'inscritos','asistentes':[...],'aprobados','reprobados',
-       'sin_correo','estado'}
-
-    'estado' es 'listo' (hay calificaciones) o 'sin_calificar'.
+       'sin_correo','estado','formato'}
     """
     datos = archivo.read() if hasattr(archivo, 'read') else archivo
     wb = openpyxl.load_workbook(io.BytesIO(datos), data_only=True, read_only=True)
@@ -535,27 +617,59 @@ def analizar_libro(archivo, anio=None, calificacion_minima=80):
         if not filas:
             continue
 
-        titulo = str(filas[0][0]).strip() if filas[0] and filas[0][0] else nombre_hoja
-        meta = interpretar_titulo(titulo, anio)
-
+        meta = _leer_metadatos(filas)
         idx, mapa = _fila_de_encabezado(filas)
         if idx is None or 'nombre' not in mapa:
             continue
 
-        # Fin del bloque de inscritos: primera fila sin nombre.
-        i = idx + 1
-        inscritos = 0
-        while i < len(filas):
-            fila = filas[i]
-            col = mapa['nombre']
-            valor = (str(fila[col]).strip()
-                     if fila and col < len(fila) and fila[col] else '')
-            if not valor:
+        # ¿El encabezado ya trae la columna de calificación? -> formato B
+        col_calif_encabezado = None
+        for j, celda in enumerate(filas[idx]):
+            if celda and normalizar_nombre(str(celda)).startswith('calificacion'):
+                col_calif_encabezado = j
                 break
-            inscritos += 1
-            i += 1
 
-        col_calif, filas_asistentes = _bloque_calificaciones(filas, i, mapa)
+        titulo_fila0 = (str(filas[0][0]).strip()
+                        if filas[0] and filas[0][0] else '')
+
+        if col_calif_encabezado is not None:
+            # -------- Formato B: un solo bloque, ya calificado --------
+            formato = 'metadatos'
+            inscritos = 0
+            col_calif, filas_asistentes = _bloque_calificaciones(filas, idx + 1, mapa)
+            col_calif = col_calif_encabezado
+            curso = meta.get('curso', '') or titulo_fila0
+            duracion = _horas_desde_texto(meta.get('duracion'))
+            modalidad = (meta.get('modalidad') or '').lower()
+            fecha = None
+            if meta.get('fecha'):
+                fecha = interpretar_titulo(str(meta['fecha']), anio)['fecha']
+            if not fecha:
+                fecha = fecha_desde_hoja(nombre_hoja, anio)
+            titulo = curso
+        else:
+            # -------- Formato A: inscritos y luego asistentes --------
+            formato = 'inscritos'
+            titulo = titulo_fila0 or nombre_hoja
+            info = interpretar_titulo(titulo, anio)
+            curso = info['curso'] or nombre_hoja
+            duracion = info['duracion_horas']
+            modalidad = info['modalidad']
+            fecha = info['fecha'] or fecha_desde_hoja(nombre_hoja, anio)
+
+            i = idx + 1
+            inscritos = 0
+            while i < len(filas):
+                fila = filas[i]
+                col = mapa['nombre']
+                valor = (str(fila[col]).strip()
+                         if fila and col < len(fila) and fila[col] else '')
+                if not valor:
+                    break
+                inscritos += 1
+                i += 1
+
+            col_calif, filas_asistentes = _bloque_calificaciones(filas, i, mapa)
 
         asistentes = []
         for fila in filas_asistentes:
@@ -588,11 +702,11 @@ def analizar_libro(archivo, anio=None, calificacion_minima=80):
         sesiones.append({
             'hoja': nombre_hoja,
             'titulo': titulo,
-            'curso': meta['curso'] or nombre_hoja,
-            'fecha': meta['fecha'],
-            'duracion_horas': meta['duracion_horas'],
-            'modalidad': meta['modalidad'],
-            'inscritos': inscritos,
+            'curso': curso or nombre_hoja,
+            'fecha': fecha,
+            'duracion_horas': duracion,
+            'modalidad': modalidad,
+            'inscritos': inscritos or len(asistentes),
             'asistentes': asistentes,
             'con_calificacion': len(con_calif),
             'aprobados': len(aprobados),
@@ -600,6 +714,7 @@ def analizar_libro(archivo, anio=None, calificacion_minima=80):
                                if a['calificacion'] is not None and not a['aprueba']]),
             'sin_correo': len([a for a in asistentes if a['aprueba'] and not a['email']]),
             'estado': 'listo' if con_calif else 'sin_calificar',
+            'formato': formato,
         })
 
     return sesiones
