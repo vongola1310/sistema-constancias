@@ -564,17 +564,19 @@ import requests
 import base64
 import os
 
-def _imagen_a_base64(imagen_source):
+def _imagen_a_base64(imagen_source, transparente=False):
     """
-    Descarga/Lee imagen, elimina transparencia (para evitar cuadros negros)
-    y retorna Base64.
+    Lee/descarga una imagen y la devuelve como data URI en Base64.
+
+    transparente=True  -> quita el fondo blanco y entrega PNG con alfa (firmas).
+    transparente=False -> aplana sobre blanco y entrega JPEG (fondo, más ligero).
     """
     if not imagen_source:
         return ""
 
     try:
         image_data = None
-        
+
         # 1. OBTENER LOS DATOS DE LA IMAGEN (Sea URL o Archivo Local)
         ruta_o_url = str(imagen_source)
         if hasattr(imagen_source, 'url'):
@@ -591,7 +593,7 @@ def _imagen_a_base64(imagen_source):
                 try: path_local = imagen_source.path
                 except: pass
             if not path_local: path_local = ruta_o_url
-            
+
             if os.path.exists(path_local):
                 with open(path_local, "rb") as f:
                     image_data = f.read()
@@ -599,26 +601,37 @@ def _imagen_a_base64(imagen_source):
         if not image_data:
             return ""
 
-        # 2. PROCESAMIENTO CON PILLOW (El secreto anti-cuadros negros)
         img = Image.open(io.BytesIO(image_data))
-        
-        # Si tiene transparencia (RGBA), la convertimos a fondo blanco
-        if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
-            # Crear lienzo blanco del mismo tamaño
-            background = Image.new("RGB", img.size, (255, 255, 255))
-            # Convertir a RGBA para asegurar compatibilidad de pegado
+
+        # 2A. FIRMAS: quitar el fondo blanco y conservar transparencia
+        if transparente:
             img = img.convert("RGBA")
-            # Pegar la imagen original usando su canal alfa como máscara
-            background.paste(img, mask=img.split()[3]) # 3 es el canal Alpha
+            pixeles = list(img.getdata())
+            UMBRAL = 235  # qué tan claro debe ser un pixel para borrarlo
+            nuevos = [
+                (r, g, b, 0) if (r >= UMBRAL and g >= UMBRAL and b >= UMBRAL)
+                else (r, g, b, a)
+                for (r, g, b, a) in pixeles
+            ]
+            img.putdata(nuevos)
+
+            buffered = io.BytesIO()
+            img.save(buffered, format="PNG", optimize=True)
+            encoded = base64.b64encode(buffered.getvalue()).decode('utf-8')
+            return f"data:image/png;base64,{encoded}"
+
+        # 2B. FONDO: aplanar sobre blanco y guardar como JPEG
+        if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
+            background = Image.new("RGB", img.size, (255, 255, 255))
+            img = img.convert("RGBA")
+            background.paste(img, mask=img.split()[3])
             img = background
         else:
             img = img.convert("RGB")
 
-        # 3. GUARDAR EN BUFFER COMO JPEG (Más ligero y sin transparencia)
         buffered = io.BytesIO()
         img.save(buffered, format="JPEG", quality=95)
         encoded = base64.b64encode(buffered.getvalue()).decode('utf-8')
-        
         return f"data:image/jpeg;base64,{encoded}"
 
     except Exception as e:
@@ -653,11 +666,11 @@ def _generar_pdf_bytes(constancia):
     # 2. Procesar FIRMAS (Pueden estar en Local o en Cloudinary)
     firma_g_url = ""
     if constancia.firma_gerente and constancia.firma_gerente.firma_digital:
-        firma_g_url = _imagen_a_base64(constancia.firma_gerente.firma_digital)
+        firma_g_url = _imagen_a_base64(constancia.firma_gerente.firma_digital, transparente=True)
 
     firma_e_url = ""
     if constancia.firma_especialista and constancia.firma_especialista.firma_digital:
-        firma_e_url = _imagen_a_base64(constancia.firma_especialista.firma_digital)
+        firma_e_url = _imagen_a_base64(constancia.firma_especialista.firma_digital, transparente=True)
 
     # 3. Formateo de Fechas
     meses = {
