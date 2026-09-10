@@ -6,13 +6,25 @@
     <style>
         /* 1. MÁRGENES EN CERO: Esto evita que se cree la segunda hoja */
         @page {
+            
             size: letter landscape;
-            margin: 0; 
+            margin: 0;
             padding: 0;
             background-image: url('{{ bg_url }}');
             background-position: center;
             background-repeat: no-repeat;
             background-size: 100% 100%;
+
+            /* Marco del contenido: alto fijo, nunca desborda a otra hoja */
+            @frame contenido {
+                -pdf-frame-content: cuerpo;
+                left: 0pt; top: 92pt; width: 792pt; height: 300pt;
+            }
+            /* Marco de firmas: anclado abajo, siempre en la misma hoja */
+            @frame firmas {
+                -pdf-frame-content: pie;
+                left: 0pt; top: 398pt; width: 792pt; height: 170pt;
+            }
         }
 
         body {
@@ -30,14 +42,14 @@
 </head>
 <body>
 
-    <pdf:spacer height="120px" />
+<div id="cuerpo">
 
     <div style="text-align: center;">
         <div style="color: #ffffff; font-size: 14pt;">otorga la presente</div>
         <div style="color: #ffffff; font-size: 38pt; font-weight: bold; line-height: 1;">CONSTANCIA</div>
     </div>
 
-    <pdf:spacer height="60px" />
+    <pdf:spacer height="26px" />
 
     <div style="text-align: center;">
         <div style="font-size: 14pt; color: #555;">a</div>
@@ -46,7 +58,7 @@
         </div>
     </div>
 
-    <pdf:spacer height="35px" />
+    <pdf:spacer height="18px" />
 
     <div style="text-align: center; padding-left: 40px; padding-right: 40px;">
         <div style="font-size: 12pt; color: #666;">
@@ -63,7 +75,7 @@
         </div>
     </div>
 
-    <pdf:spacer height="120px" />
+    <pdf:spacer height="18px" />
 
     <div style="text-align: center;">
         <div style="font-size: 12pt;">
@@ -75,8 +87,9 @@
         </div>
     </div>
 
-    <pdf:spacer height="15px" />
+</div>
 
+<div id="pie">
    <table width="100%" border="0" cellpadding="0" cellspacing="0">
     <tr>
         <td width="50%" align="center" valign="bottom" style="padding: 0 60px;">
@@ -112,6 +125,7 @@
         </td>
     </tr>
 </table>
+</div>
 
 </body>
 </html>
