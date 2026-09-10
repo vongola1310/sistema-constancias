@@ -1,5 +1,6 @@
 import os
 import uuid
+from PIL import Image, ImageChops
 import io
 import base64
 import mimetypes
@@ -604,16 +605,20 @@ def _imagen_a_base64(imagen_source, transparente=False):
         img = Image.open(io.BytesIO(image_data))
 
         # 2A. FIRMAS: quitar el fondo blanco y conservar transparencia
+         # 2A. FIRMAS: quitar el fondo blanco y conservar transparencia
         if transparente:
             img = img.convert("RGBA")
-            pixeles = list(img.getdata())
+            # Reducir primero: en la constancia se muestra a 130px de ancho,
+            # procesar el original completo agota la memoria en Vercel.
+            img.thumbnail((600, 300))
+
             UMBRAL = 235  # qué tan claro debe ser un pixel para borrarlo
-            nuevos = [
-                (r, g, b, 0) if (r >= UMBRAL and g >= UMBRAL and b >= UMBRAL)
-                else (r, g, b, a)
-                for (r, g, b, a) in pixeles
-            ]
-            img.putdata(nuevos)
+            r, g, b, a = img.split()
+            claro = lambda canal: canal.point(lambda v: 255 if v >= UMBRAL else 0)
+            blanco = ImageChops.darker(
+                ImageChops.darker(claro(r), claro(g)), claro(b)
+            )
+            img.putalpha(ImageChops.subtract(a, blanco))
 
             buffered = io.BytesIO()
             img.save(buffered, format="PNG", optimize=True)
