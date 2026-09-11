@@ -324,6 +324,60 @@
     padding: 32px 16px;
   }
 
+  /* Métrica interna (solo la ve quien genera) */
+  .metrica {
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 14px;
+    padding: 13px 15px;
+    margin-bottom: 14px;
+  }
+  .metrica .m-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .metrica .m-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #6366f1;
+  }
+  .metrica .m-pct { font-size: 1.5rem; font-weight: 800; color: #4338ca; line-height: 1; }
+  .metrica .m-detalle { font-size: 0.72rem; color: #4b5563; line-height: 1.5; }
+  .metrica .m-barra {
+    height: 6px;
+    background: #e0e7ff;
+    border-radius: 20px;
+    overflow: hidden;
+    margin: 9px 0 7px;
+  }
+  .metrica .m-barra span {
+    display: block;
+    height: 6px;
+    width: 0;
+    background: #6366f1;
+    border-radius: 20px;
+    transition: width .2s;
+  }
+  .metrica.alta { background: #fef2f2; border-color: #fecaca; }
+  .metrica.alta .m-title { color: #dc2626; }
+  .metrica.alta .m-pct { color: #b91c1c; }
+  .metrica.alta .m-barra { background: #fee2e2; }
+  .metrica.alta .m-barra span { background: #dc2626; }
+  .metrica .m-nota { font-size: 0.66rem; color: #9ca3af; margin: 0; }
+
+  /* Tarjeta de no calificado, ahora seleccionable */
+  .rejected-card.sel { cursor: pointer; transition: background .15s, border-color .15s; }
+  .rejected-card.sel:hover { background: #f9fafb; }
+  .rejected-card.sel.on { background: #eef2ff; border-color: #c7d2fe; }
+  .rc-check { display: flex; align-items: flex-start; gap: 9px; }
+  .rc-check input { margin-top: 3px; width: 15px; height: 15px; accent-color: #6366f1; }
+  .rc-body { flex: 1; min-width: 0; }
+
   /* Pendientes de correo */
   .pend-heading {
     display: flex;
@@ -558,6 +612,9 @@
     <!-- Right: rejected + actions -->
     <div class="wbn2-right">
 
+      <form method="post" class="wbn2-actions">
+        {% csrf_token %}
+
       <div>
         <div class="rejected-heading">
           <h3>🚫 No Calificados</h3>
@@ -567,23 +624,26 @@
         <div class="rejected-list">
           <div class="rejected-scroll">
             {% for p in no_calificados %}
-            <div class="rejected-card">
-              <div class="rc-name">{{ p.nombre_completo }}</div>
-              <div class="rc-email">{{ p.email }}</div>
-              <div class="rc-footer">
-                <span class="rc-inst">{{ p.institucion|truncatechars:18 }}</span>
-                <span class="rc-time">{{ p.duracion_total }}m</span>
+            <label class="rejected-card sel">
+              <div class="rc-check">
+                <input type="checkbox" class="chk-extra" name="incluir_no_calificado"
+                       value="{{ forloop.counter0 }}" data-min="{{ p.duracion_total }}">
+                <div class="rc-body">
+                  <div class="rc-name">{{ p.nombre_completo }}</div>
+                  <div class="rc-email">{{ p.email }}</div>
+                  <div class="rc-footer">
+                    <span class="rc-inst">{{ p.institucion|truncatechars:18 }}</span>
+                    <span class="rc-time">{{ p.duracion_total }}m</span>
+                  </div>
+                </div>
               </div>
-            </div>
+            </label>
             {% empty %}
             <p class="rejected-empty">Todos calificaron perfectamente.</p>
             {% endfor %}
           </div>
         </div>
       </div>
-
-      <form method="post" class="wbn2-actions">
-        {% csrf_token %}
 
         {% if pendientes %}
         <div>
@@ -619,6 +679,18 @@
         </div>
         {% endif %}
 
+        <div class="metrica" id="metrica">
+          <div class="m-top">
+            <span class="m-title">Aprobados sin cumplir tiempo</span>
+            <span class="m-pct" id="m-pct">0%</span>
+          </div>
+          <div class="m-barra"><span id="m-barra"></span></div>
+          <div class="m-detalle" id="m-detalle">
+            0 de {{ participantes|length }} constancias por excepción.
+          </div>
+          <p class="m-nota">Dato interno. No aparece en la constancia.</p>
+        </div>
+
         <button type="submit" {% if not participantes and not pendientes %}disabled{% endif %} class="btn-gen">
           Generar Constancias
         </button>
@@ -629,4 +701,36 @@
   </div>
 
 </div>
+<script>
+  (function () {
+    var base = parseInt("{{ participantes|length }}", 10) || 0;
+    var extras = Array.prototype.slice.call(document.querySelectorAll('.chk-extra'));
+    var pend = Array.prototype.slice.call(document.querySelectorAll('input[name^="correo_pendiente_"]'));
+    var caja = document.getElementById('metrica');
+    var pct = document.getElementById('m-pct');
+    var barra = document.getElementById('m-barra');
+    var detalle = document.getElementById('m-detalle');
+    if (!caja) return;
+
+    function actualizar() {
+      var n = extras.filter(function (c) { return c.checked; }).length;
+      var conPend = pend.filter(function (i) { return i.value.trim() !== ''; }).length;
+      var total = base + conPend + n;
+      var p = total ? Math.round((n / total) * 1000) / 10 : 0;
+
+      pct.textContent = p + '%';
+      barra.style.width = Math.min(p, 100) + '%';
+      detalle.textContent = n + ' de ' + total + ' constancias por excepción.';
+      caja.classList.toggle('alta', p >= 20);
+
+      extras.forEach(function (c) {
+        c.closest('.rejected-card').classList.toggle('on', c.checked);
+      });
+    }
+
+    extras.forEach(function (c) { c.addEventListener('change', actualizar); });
+    pend.forEach(function (i) { i.addEventListener('input', actualizar); });
+    actualizar();
+  })();
+</script>
 {% endblock content %}
