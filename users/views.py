@@ -430,7 +430,20 @@ def webinar_paso1_subir_view(request):
 #  incluirse marcando su casilla en la previsualización. Se registra qué
 #  proporción de constancias se emitió por excepción (dato interno).
 # =============================================================================
+def _mejor_nombre(guardado, nuevo):
+    """Devuelve el nombre más completo de los dos.
 
+    Compara por número de palabras significativas: un nombre con apellidos
+    gana sobre un 'nombre para mostrar' recortado. Ante empate conserva el
+    que ya estaba guardado, para no perder acentos ni correcciones manuales.
+    """
+    if not nuevo:
+        return guardado
+    if not guardado:
+        return nuevo
+    if len(importadores.tokens_nombre(nuevo)) > len(importadores.tokens_nombre(guardado)):
+        return nuevo
+    return guardado
 
 @login_required
 def webinar_paso2_previsualizar_view(request):
@@ -571,6 +584,104 @@ def webinar_paso2_previsualizar_view(request):
         'evento': event_data,
     }
     return render(request, 'users/webinar_paso2_previsualizar.html', context)
+    event_data = request.session.get('webinar_event_data')
+    participantes = request.session.get('webinar_participantes_calificados')
+    no_calificados = request.session.get('webinar_participantes_no_calificados')
+    pendientes = request.session.get('webinar_pendientes', [])
+ 
+    if not event_data or participantes is None:
+        messages.error(request, "No hay datos para procesar.")
+        return redirect('users:webinar_paso1')
+ 
+    if request.method == 'POST':
+        # --- Incorporar los correos capturados a mano ---
+        agregados = 0
+        for i, p in enumerate(pendientes):
+            correo = request.POST.get(f'correo_pendiente_{i}', '').strip().lower()
+            if not correo:
+                continue
+            if not importadores._es_correo(correo):
+                messages.error(
+                    request,
+                    f"El correo de {p['nombre_completo']} no es válido: {correo}"
+                )
+                return redirect('users:webinar_paso2')
+            if any(x['email'] == correo for x in participantes):
+                continue
+            participantes.append({
+                'nombre_completo': p['nombre_completo'],
+                'email': correo,
+                'institucion': p['institucion'],
+                'duracion_total': p['duracion_total'],
+                'estado_correo': 'manual',
+            })
+            agregados += 1
+ 
+        if not participantes:
+            messages.error(request, "No hay participantes con correo para generar constancias.")
+            return redirect('users:webinar_paso2')
+ 
+        try:
+            with transaction.atomic():
+                curso = Curso.objects.create(nombre=event_data['curso_nombre'])
+ 
+                firma_e_id = event_data.get('firma_especialista_id')
+                firma_especialista = (
+                    Evaluador.objects.filter(id=firma_e_id).first() if firma_e_id else None
+                )
+                firma_gerente = Evaluador.objects.filter(es_gerente=True).first()
+ 
+                for p_data in participantes:
+                    participante, created = Participante.objects.get_or_create(
+                        email=p_data['email'],
+                        defaults={
+                            'nombre_completo': p_data['nombre_completo'],
+                            'institucion_id': None,
+                        }
+                    )
+                    if not created:
+                        participante.nombre_completo = p_data['nombre_completo']
+                        participante.save()
+ 
+                    nuevo_codigo = str(uuid.uuid4()).split('-')[0].upper()
+ 
+                    Constancia.objects.create(
+                        participante=participante,
+                        curso=curso,
+                        fecha_inicio=event_data['fecha_inicio'],
+                        fecha_termino=event_data['fecha_termino'],
+                        duracion_en_horas=event_data['duracion_en_horas'],
+                        firma_gerente=firma_gerente,
+                        firma_especialista=firma_especialista,
+                        codigo_verificacion=nuevo_codigo,
+                        es_webinar=True,
+                         tipo='webinar'
+                    )
+ 
+            for clave in ('webinar_event_data', 'webinar_participantes_calificados',
+                          'webinar_participantes_no_calificados', 'webinar_pendientes'):
+                request.session.pop(clave, None)
+ 
+            extra = f" (incluidos {agregados} capturados a mano)" if agregados else ""
+            messages.success(
+                request,
+                f"¡Éxito! Se generaron {len(participantes)} constancias correctamente{extra}."
+            )
+            return redirect('users:historial_constancias')
+ 
+        except Exception as e:
+            messages.error(request, f"Hubo un error al generar las constancias: {str(e)}")
+            return redirect('users:webinar_paso2')
+ 
+    context = {
+        'participantes': participantes,
+        'no_calificados': no_calificados,
+        'pendientes': pendientes,
+        'evento': event_data,
+    }
+    return render(request, 'users/webinar_paso2_previsualizar.html', context)
+
+    
 
 from django.db import transaction
 from .models import Participante, Curso, Constancia
