@@ -96,13 +96,22 @@ def _es_correo(valor):
 
 ALIAS = {
     'nombre':      ['nombre completo', 'nombre', 'name', 'full name', 'attendee', 'participante', 'asistente'],
+    'mostrar':     ['nombre para mostrar', 'display name', 'attendee name'],
     'primer':      ['first name', 'nombre(s)', 'nombres'],
     'apellido':    ['last name', 'apellido', 'apellidos'],
-    'email':       ['correo electronico', 'correo', 'email', 'e-mail', 'mail'],
+    'email':       ['correo electronico del asistente', 'correo electronico',
+                    'correo', 'email', 'e-mail', 'mail'],
     'institucion': ['institucion', 'empresa', 'company', 'organizacion', 'organization'],
-    'duracion':    ['duracion de la reunion', 'duracion', 'tiempo de asistencia',
-                    'attendance duration', 'time in session', 'duration', 'minutos'],
+    # Primero lo específico de ASISTENCIA. Si se pusiera 'duracion' antes,
+    # WebEx devolvería la "Duración planificada del seminario web" (igual
+    # para todos) en lugar del tiempo real de cada persona.
+    'duracion':    ['duracion de la asistencia', 'duracion de la reunion',
+                    'tiempo de asistencia', 'attendance duration',
+                    'time in session', 'duracion', 'duration', 'minutos'],
 }
+
+# Encabezados que nunca deben tomarse como duración de asistencia
+DURACION_PROHIBIDA = ('planificada', 'planned', 'scheduled')
 
 
 def _mapear_columnas(encabezados):
@@ -125,9 +134,12 @@ def _mapear_columnas(encabezados):
         for opcion in opciones:
             objetivo = normalizar_nombre(opcion)
             for i, h in enumerate(limpios):
-                if objetivo and objetivo in h and i not in mapa.values():
-                    mapa[campo] = i
-                    break
+                if not objetivo or objetivo not in h or i in mapa.values():
+                    continue
+                if campo == 'duracion' and any(x in h for x in DURACION_PROHIBIDA):
+                    continue
+                mapa[campo] = i
+                break
             if campo in mapa:
                 break
     return mapa
@@ -235,12 +247,23 @@ def parsear_asistencia(archivo, nombre_archivo=None, hoja=None):
             i = mapa.get(campo)
             if i is None or i >= len(fila) or fila[i] is None:
                 return ''
-            return str(fila[i]).strip()
+            valor = str(fila[i]).strip()
+            # WebEx escribe "N/A" cuando no desglosó el nombre
+            if valor.lower() in ('n/a', 'na', '-', '--', 'null', 'none'):
+                return ''
+            return valor
 
-        if 'nombre' in mapa:
-            nombre = celda('nombre')
+        # Los reportes de WebEx traen "Nombre para mostrar" (recortado, p. ej.
+        # "Adahi Santillan") junto a "Nombre" y "Apellido". Si existe columna
+        # de apellido, entonces "Nombre" es el nombre de pila y hay que unirlos;
+        # si no existe (caso Teams), "Nombre" ya es el nombre completo.
+        if 'apellido' in mapa:
+            pila = celda('primer') or celda('nombre')
+            nombre = (pila + ' ' + celda('apellido')).strip()
         else:
-            nombre = (celda('primer') + ' ' + celda('apellido')).strip()
+            nombre = celda('nombre') or celda('primer')
+        if not nombre:
+            nombre = celda('mostrar')
 
         nombre = re.sub(r'\s*\(no comprobado\)\s*', '', nombre, flags=re.I).strip()
         if not nombre or normalizar_nombre(nombre) in ('nombre', 'name'):
@@ -371,6 +394,12 @@ def completar_correos(asistentes, padron):
         if estado == 'ok':
             a['email'] = resultado['email'].lower()
             a['estado_correo'] = 'recuperado'
+            # El reporte trae el "nombre para mostrar" (p. ej. "Monica Velazquez"),
+            # que suele venir incompleto. El padrón tiene el nombre real, y es
+            # ese el que debe salir impreso en la constancia.
+            a['nombre_reporte'] = a['nombre_completo']
+            if len(tokens_nombre(resultado['nombre'])) >= len(tokens_nombre(a['nombre_completo'])):
+                a['nombre_completo'] = resultado['nombre'].strip()
             a['origen_correo'] = resultado['nombre']
             if a['institucion'] in ('', 'N/A'):
                 a['institucion'] = resultado['institucion']
