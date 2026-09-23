@@ -29,6 +29,7 @@ from django.core.mail import EmailMessage
 from django.core.paginator import Paginator
 import os
 from . import importadores
+from .fechas import formatear_fechas
 from django.conf import settings
 from .models import Participante, Curso, Constancia
 from django.http import HttpResponse, JsonResponse
@@ -837,13 +838,10 @@ def _generar_pdf_bytes(constancia):
         firma_e_url = _imagen_a_base64(constancia.firma_especialista.firma_digital, transparente=True)
 
     # 3. Formateo de Fechas
-    meses = {
-        1: "enero", 2: "febrero", 3: "marzo", 4: "abril",
-        5: "mayo", 6: "junio", 7: "julio", 8: "agosto",
-        9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre"
-    }
-    f = constancia.fecha_termino
-    fecha_texto = f"{f.day} de {meses[f.month]} de {f.year}" if f else ""
+    fechas = constancia.fechas_evento or (
+        [constancia.fecha_termino] if constancia.fecha_termino else []
+    )
+    fecha_texto = formatear_fechas(fechas)
     duracion_formateada = f"{int(constancia.duracion_en_horas):02d}" if constancia.duracion_en_horas else "00"
 
     # 4. Preparar Contexto para el HTML
@@ -1066,6 +1064,9 @@ def libro_paso1_subir_view(request):
                 sesiones = importadores.analizar_libro(
                     archivo.read(), anio=anio, calificacion_minima=minima
                 )
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                return redirect('users:libro_paso1')
             except Exception:
                 messages.error(
                     request,
@@ -1088,6 +1089,8 @@ def libro_paso1_subir_view(request):
                     'hoja': s['hoja'],
                     'curso': s['curso'],
                     'fecha': s['fecha'].isoformat() if s['fecha'] else None,
+                    'fechas': [f.isoformat() for f in s['fechas']],
+                    'fecha_texto': formatear_fechas(s['fechas']),
                     'duracion_horas': s['duracion_horas'] or 1.0,
                     'modalidad': s['modalidad'],
                     'inscritos': s['inscritos'],
@@ -1180,6 +1183,7 @@ def libro_paso2_seleccionar_view(request):
                     # --- 2) Un curso por hoja, reutilizable ---
                     curso, _ = Curso.objects.get_or_create(nombre=s['curso'])
                     generadas = 0
+                    fechas = s.get('fechas') or [s['fecha']]
 
                     for email, p in unicos.items():
                         participante, creado = Participante.objects.get_or_create(
@@ -1197,9 +1201,10 @@ def libro_paso2_seleccionar_view(request):
                         constancia, nueva = Constancia.objects.get_or_create(
                             participante=participante,
                             curso=curso,
-                            fecha_inicio=s['fecha'],
+                            fecha_inicio=fechas[0],
                             defaults={
-                                'fecha_termino': s['fecha'],
+                                'fecha_termino': fechas[-1],
+                                'fechas_evento': fechas,
                                 'duracion_en_horas': s['duracion_horas'],
                                 'firma_gerente': firma_gerente,
                                 'firma_especialista': firma_especialista,

@@ -104,14 +104,18 @@ class EncuestaForm(forms.ModelForm):
 class LibroCapacitacionesForm(forms.Form):
     archivo = forms.FileField(
         label="Libro de capacitaciones (.xlsx)",
-        help_text="Cada hoja del Excel se detectará como una sesión distinta."
+        help_text=(
+            "Cada hoja del Excel se detectará como una sesión distinta. "
+            "Para varios días, incluye las columnas Día, Mes y Año al inicio "
+            "de la hoja y debajo, por ejemplo: 8, 9, 10 | septiembre | 2026."
+        )
     )
     anio = forms.IntegerField(
         label="Año de las sesiones",
         initial=2026,
         min_value=2020,
         max_value=2100,
-        help_text="Los títulos de las hojas no incluyen el año."
+        help_text="Se usa cuando la fecha del Excel o el título no incluye el año."
     )
     calificacion_minima = forms.DecimalField(
         label="Calificación mínima para aprobar",

@@ -77,6 +77,11 @@ class Constancia(models.Model):
     curso = models.ForeignKey(Curso, on_delete=models.CASCADE, verbose_name="Curso")
     fecha_inicio = models.DateField(verbose_name="Fecha de Inicio del Evento")
     fecha_termino = models.DateField(verbose_name="Fecha de Término del Evento")
+    fechas_evento = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Días de la capacitación",
+    )
     duracion_en_horas = models.DecimalField(max_digits=4, decimal_places=1, verbose_name="Duración (Horas)")
     firma_gerente = models.ForeignKey(
         Evaluador,

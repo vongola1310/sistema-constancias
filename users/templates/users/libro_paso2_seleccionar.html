@@ -160,7 +160,7 @@
         <div class="ses-title">{{ s.curso }}</div>
         <div class="ses-meta">
           Hoja "{{ s.hoja }}"
-          {% if s.fecha %} · {{ s.fecha }}{% endif %}
+          {% if s.fecha %} · {{ s.fecha_texto|default:s.fecha }}{% endif %}
           {% if s.duracion_horas %} · {{ s.duracion_horas }} h{% endif %}
           {% if s.modalidad %} · {{ s.modalidad }}{% endif %}
         </div>
