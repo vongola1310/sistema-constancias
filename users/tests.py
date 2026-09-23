@@ -4,6 +4,8 @@ from io import BytesIO
 import openpyxl
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase, TestCase
+from django.template.loader import render_to_string
+from django.core import mail
 from django.urls import reverse
 from pypdf import PdfReader
 
@@ -114,3 +116,38 @@ class ConstanciasCalificacionTests(TestCase):
         self.assertNotIn('libro_sesiones', self.client.session)
         mensajes = [str(m) for m in respuesta.wsgi_request._messages]
         self.assertTrue(any('fecha inexistente' in m for m in mensajes))
+
+    def test_recargar_excel_completa_fechas_sin_duplicar_constancia(self):
+        self.subir(libro_prueba(dias=8))
+        self.client.post(reverse('users:libro_paso2'), {'hojas': ['8 sep']})
+        constancia = Constancia.objects.get()
+        constancia.fechas_evento = []
+        constancia.save(update_fields=['fechas_evento'])
+        codigo = constancia.codigo_verificacion
+        self.subir(libro_prueba())
+        respuesta = self.client.post(reverse('users:libro_paso2'), {'hojas': ['8 sep']})
+        self.assertEqual(Constancia.objects.count(), 1)
+        constancia.refresh_from_db()
+        self.assertEqual(constancia.codigo_verificacion, codigo)
+        self.assertEqual(constancia.fecha_termino, date(2026, 9, 10))
+        self.assertEqual(constancia.fechas_evento, ['2026-09-08', '2026-09-09', '2026-09-10'])
+        mensajes = [str(m) for m in respuesta.wsgi_request._messages]
+        self.assertTrue(any('Se actualizaron las fechas de 1' in m for m in mensajes))
+        html = render_to_string('pdf/constancia_template.html', {'constancia': constancia})
+        self.assertIn('8, 9 y 10 de septiembre de 2026', html)
+
+    def test_pdf_de_envio_masivo_incluye_los_dias_exactos(self):
+        self.subir(libro_prueba(dias='8 y 10'))
+        self.client.post(reverse('users:libro_paso2'), {'hojas': ['8 sep']})
+        constancia = Constancia.objects.get()
+        with self.settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend'):
+            respuesta = self.client.post(reverse('users:enviar_masivo'), {
+                'constancias_seleccionadas': [constancia.pk],
+            })
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+        pdf = PdfReader(BytesIO(mail.outbox[0].attachments[0][1]))
+        self.assertEqual(len(pdf.pages), 1)
+        texto = ' '.join(pdf.pages[0].extract_text().split())
+        self.assertIn('Realizado el 8 y 10 de septiembre de 2026 en la Ciudad de México', texto)
+        self.assertIn('12 horas', texto)

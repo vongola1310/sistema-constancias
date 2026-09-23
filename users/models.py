@@ -2,6 +2,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 import uuid
+from .fechas import formatear_fechas
 
 class Evaluador(AbstractUser):
     # Asegúrate de que tu modelo tenga estos campos
@@ -122,6 +123,13 @@ class Constancia(models.Model):
 
     def __str__(self):
         return f"Constancia para {self.participante} en el curso {self.curso}"
+
+    @property
+    def fecha_texto(self):
+        fechas = self.fechas_evento or (
+            [self.fecha_termino] if self.fecha_termino else []
+        )
+        return formatear_fechas(fechas)
     
 class EncuestaRespuesta(models.Model):
     constancia = models.OneToOneField(Constancia, on_delete=models.CASCADE, primary_key=True)

@@ -838,10 +838,6 @@ def _generar_pdf_bytes(constancia):
         firma_e_url = _imagen_a_base64(constancia.firma_especialista.firma_digital, transparente=True)
 
     # 3. Formateo de Fechas
-    fechas = constancia.fechas_evento or (
-        [constancia.fecha_termino] if constancia.fecha_termino else []
-    )
-    fecha_texto = formatear_fechas(fechas)
     duracion_formateada = f"{int(constancia.duracion_en_horas):02d}" if constancia.duracion_en_horas else "00"
 
     # 4. Preparar Contexto para el HTML
@@ -850,7 +846,6 @@ def _generar_pdf_bytes(constancia):
         'bg_url': bg_url,         # <--- Base64 del fondo
         'firma_g_url': firma_g_url, # <--- Base64 de firma gerente
         'firma_e_url': firma_e_url, # <--- Base64 de firma especialista
-        'fecha_texto': fecha_texto,
         'duracion_formateada': duracion_formateada,
     }
     
@@ -910,18 +905,10 @@ def enviar_constancias_masivo_view(request):
 
             if email_destino:
                 # Generar el PDF en memoria
-                context = {'constancia': constancia}
-                html_string = render_to_string('pdf/constancia_template.html', context)
-                result = io.BytesIO()
-                
-                # Aquí usamos pisa y link_callback sin errores
-                pisa_status = pisa.pisaDocument(
-                    io.BytesIO(html_string.encode("UTF-8")), 
-                    result, 
-                    link_callback=link_callback
-                )
-                
-                pdf_content = result.getvalue()
+                pdf_content = _generar_pdf_bytes(constancia)
+                if pdf_content is None:
+                    messages.error(request, f"No se pudo generar la constancia {constancia.pk}.")
+                    continue
 
                 # Configurar el correo
                 subject = f"Constancia: {constancia.curso.nombre}"
@@ -1153,6 +1140,7 @@ def libro_paso2_seleccionar_view(request):
         total = 0
         omitidas = 0
         repetidas = 0
+        actualizadas = 0
         resumen = []
 
         try:
@@ -1215,6 +1203,18 @@ def libro_paso2_seleccionar_view(request):
                         )
                         if nueva:
                             generadas += 1
+                        elif (
+                            constancia.tipo == 'teorica'
+                            and s.get('fechas')
+                            and (
+                                constancia.fechas_evento != fechas
+                                or constancia.fecha_termino.isoformat() != fechas[-1]
+                            )
+                        ):
+                            constancia.fechas_evento = fechas
+                            constancia.fecha_termino = fechas[-1]
+                            constancia.save(update_fields=['fechas_evento', 'fecha_termino'])
+                            actualizadas += 1
                         else:
                             omitidas += 1
 
@@ -1228,6 +1228,8 @@ def libro_paso2_seleccionar_view(request):
                     + ", ".join(resumen)
             if omitidas:
                 texto += f" · {omitidas} ya existían y se omitieron"
+            if actualizadas:
+                texto += f" · Se actualizaron las fechas de {actualizadas} constancia(s) existente(s)"
             if repetidas:
                 texto += f" · {repetidas} fila(s) repetida(s) en el Excel"
             messages.success(request, texto)
