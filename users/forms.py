@@ -107,7 +107,9 @@ class LibroCapacitacionesForm(forms.Form):
         help_text=(
             "Cada hoja del Excel se detectará como una sesión distinta. "
             "Para varios días, incluye las columnas Día, Mes y Año al inicio "
-            "de la hoja y debajo, por ejemplo: 8, 9, 10 | septiembre | 2026."
+            "de la hoja y debajo, por ejemplo: 8, 9, 10 | septiembre | 2026. "
+            "También puedes escribir una fecha por fila, sin filas vacías entre fechas."
+            " O bien: Fecha | 13,14 y 15 de septiembre del 2026."
         )
     )
     anio = forms.IntegerField(

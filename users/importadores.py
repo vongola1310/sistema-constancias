@@ -18,7 +18,7 @@ import re
 import unicodedata
 
 import openpyxl
-from .fechas import leer_fechas_excel
+from .fechas import leer_fechas_excel, leer_fechas_texto
 
 # --- Títulos profesionales que se ignoran al comparar nombres ---
 TITULOS = {
@@ -702,7 +702,11 @@ def analizar_libro(archivo, anio=None, calificacion_minima=80):
             col_calif, filas_asistentes = _bloque_calificaciones(filas, i, mapa)
 
         try:
-            fechas = leer_fechas_excel(filas)
+            fechas = leer_fechas_excel(filas[:idx])
+            if fechas is None:
+                fechas = leer_fechas_texto(meta.get('fecha'), anio)
+            if fechas is None:
+                fechas = leer_fechas_texto(titulo, anio)
         except ValueError as exc:
             raise ValueError(f'Hoja "{nombre_hoja}": {exc}') from exc
         if fechas is None:

@@ -9,22 +9,25 @@ from django.core import mail
 from django.urls import reverse
 from pypdf import PdfReader
 
-from .fechas import formatear_fechas, leer_fechas_excel
+from .fechas import formatear_fechas, leer_fechas_excel, leer_fechas_texto
 from .importadores import analizar_libro
 from .models import Constancia, Evaluador
 from .views import _generar_pdf_bytes
 
 
-def libro_prueba(dias='8, 9, 10', mes='septiembre', explicitas=True):
+def libro_prueba(dias='8, 9, 10', mes='septiembre', explicitas=True, filas_fechas=None, fecha_texto=None):
     libro = openpyxl.Workbook()
     hoja = libro.active
     hoja.title = '8 sep'
     hoja.append(['Nombre de la capacitación:', 'Curso de prueba'])
     hoja.append(['Modalidad', 'Presencial'])
     hoja.append(['Duración', '12 h'])
-    if explicitas:
+    if fecha_texto is not None:
+        hoja.append(['Fecha:', fecha_texto])
+    elif explicitas:
         hoja.append(['Fecha:', 'dia', 'mes', 'año '])
-        hoja.append([None, dias, mes, 2026])
+        for valores in (filas_fechas if filas_fechas is not None else [(dias, mes, 2026)]):
+            hoja.append([None, *valores])
     hoja.append([])
     hoja.append(['Nombre', 'Correo', 'Calificación'])
     hoja.append(['Persona Aprobada', 'aprobada@example.com', 95])
@@ -36,6 +39,52 @@ def libro_prueba(dias='8, 9, 10', mes='septiembre', explicitas=True):
 
 
 class FechasExcelTests(SimpleTestCase):
+    def test_fecha_completa_en_celda_de_texto(self):
+        for texto in (
+            '13,14 y 15 de septiembre del 2026',
+            '13 14 15 de septiembre de 2026',
+            '13, 14, 15 de septiembre 2026',
+            '13,14 y 15 de septiembre',
+        ):
+            with self.subTest(texto=texto):
+                sesion, = analizar_libro(libro_prueba(fecha_texto=texto), anio=2026)
+                self.assertEqual(sesion['fechas'], [date(2026, 9, d) for d in (13, 14, 15)])
+
+    def test_texto_con_fecha_invalida_no_se_trunca(self):
+        with self.assertRaisesRegex(ValueError, 'fecha inexistente'):
+            analizar_libro(libro_prueba(fecha_texto='30 y 31 de septiembre del 2026'))
+
+    def test_texto_con_uno_dos_o_mas_dias(self):
+        for dias in [(13,), (13, 15), (13, 14, 15, 16, 17)]:
+            texto = ', '.join(str(d) for d in dias) + ' de septiembre del 2026'
+            self.assertEqual(leer_fechas_texto(texto), [date(2026, 9, d) for d in dias])
+
+    def test_lee_todas_las_filas_de_fechas(self):
+        sesion, = analizar_libro(libro_prueba(filas_fechas=[
+            (12, 'septiembre', 2016),
+            (13, 'septiembre', 2016),
+            (14, 'septiembre', 2016),
+        ]))
+        self.assertEqual(sesion['fechas'], [date(2016, 9, d) for d in (12, 13, 14)])
+
+    def test_filas_con_mes_y_anio_compartidos(self):
+        sesion, = analizar_libro(libro_prueba(filas_fechas=[
+            (8, 'septiembre', 2026), (10, None, None), (11, None, None), (14, None, None),
+        ]))
+        self.assertEqual(formatear_fechas(sesion['fechas']), '8, 10, 11 y 14 de septiembre de 2026')
+
+    def test_fecha_invalida_en_segunda_fila_se_rechaza(self):
+        with self.assertRaisesRegex(ValueError, 'fecha inexistente'):
+            analizar_libro(libro_prueba(filas_fechas=[
+                (30, 'septiembre', 2026), (31, 'septiembre', 2026),
+            ]))
+
+    def test_filas_de_fechas_cruzan_mes_y_anio(self):
+        sesion, = analizar_libro(libro_prueba(filas_fechas=[
+            (31, 'diciembre', 2026), (2, 'enero', 2027),
+        ]))
+        self.assertEqual(sesion['fechas'], [date(2026, 12, 31), date(2027, 1, 2)])
+
     def test_importacion_conserva_dias_calificaciones_y_horas(self):
         sesion, = analizar_libro(libro_prueba(), anio=2025)
         self.assertEqual(sesion['fechas'], [date(2026, 9, d) for d in (8, 9, 10)])
@@ -82,6 +131,26 @@ class ConstanciasCalificacionTests(TestCase):
             'calificacion_minima': 80,
             'firma_especialista': self.evaluador.pk,
         })
+
+    def test_frase_con_tres_fechas_llega_completa_al_pdf(self):
+        self.subir(libro_prueba(fecha_texto='13,14 y 15 de septiembre del 2026'))
+        fechas = ['2026-09-13', '2026-09-14', '2026-09-15']
+        self.assertEqual(self.client.session['libro_sesiones'][0]['fechas'], fechas)
+        self.assertContains(
+            self.client.get(reverse('users:libro_paso2')),
+            '13, 14 y 15 de septiembre de 2026',
+        )
+        self.client.post(reverse('users:libro_paso2'), {'hojas': ['8 sep']})
+        constancia = Constancia.objects.get()
+        self.assertEqual(constancia.fechas_evento, fechas)
+        self.assertEqual(constancia.fecha_inicio, date(2026, 9, 13))
+        self.assertEqual(constancia.fecha_termino, date(2026, 9, 15))
+        pdf = PdfReader(BytesIO(_generar_pdf_bytes(constancia)))
+        self.assertEqual(len(pdf.pages), 1)
+        texto = ' '.join(pdf.pages[0].extract_text().split())
+        self.assertIn(
+            'Realizado el 13, 14 y 15 de septiembre de 2026 en la Ciudad de México', texto
+        )
 
     def test_flujo_completo_y_pdf_con_tres_dias(self):
         respuesta = self.subir(libro_prueba())
