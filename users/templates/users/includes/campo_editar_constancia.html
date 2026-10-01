@@ -1,0 +1,13 @@
+{% load widget_tweaks %}
+<div{% if field.name == 'fechas_evento' %} class="md:col-span-2"{% endif %}>
+    <label for="{{ field.id_for_label }}" class="block text-gray-700 font-bold mb-1">{{ field.label }}</label>
+    {{ field|add_class:"w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-empresa-green" }}
+    {% if field.help_text %}
+        <p id="{{ field.auto_id }}_helptext" class="text-gray-500 text-sm mt-1">{{ field.help_text }}</p>
+    {% endif %}
+    {% if field.errors %}
+        <div id="{{ field.auto_id }}_error" role="alert" class="text-red-600 text-sm mt-1">
+            {% for error in field.errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+    {% endif %}
+</div>

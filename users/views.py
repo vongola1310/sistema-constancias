@@ -36,7 +36,7 @@ from django.http import HttpResponse, JsonResponse
 from .forms import (
     EvaluadorCreationForm, ProfilePhotoForm, SignatureForm, 
     CursoForm, ParticipanteForm, InstitucionForm, LoteConstanciaForm,
-    WebinarStep1Form, EncuestaForm, LibroCapacitacionesForm
+    WebinarStep1Form, EncuestaForm, LibroCapacitacionesForm, EditarConstanciaForm
 )
 from . import importadores
 from .models import (
@@ -44,6 +44,7 @@ from .models import (
     EncuestaRespuesta, LeadVenta
 )
 from django.db.models import Q
+from django.db import IntegrityError, transaction
 # --- VISTAS DE AUTENTICACIÓN Y PERFIL ---
 
 def login_view(request):
@@ -278,6 +279,47 @@ def historial_constancias_view(request):
         'filtro_activo': filtro_tipo
     }
     return render(request, 'users/historial_constancias.html', context)
+
+
+@login_required
+def editar_constancia_view(request, pk):
+    constancia = get_object_or_404(
+        Constancia.objects.select_related('participante', 'curso'), pk=pk
+    )
+    datos = request.POST if request.method == 'POST' else None
+    participante_form = ParticipanteForm(datos, instance=constancia.participante, prefix='participante')
+    participante_form.fields['nombre_completo'].label = 'Nombre completo y apellidos'
+    constancia_form = EditarConstanciaForm(datos, instance=constancia, prefix='constancia')
+
+    if request.method == 'POST':
+        participante_valido = participante_form.is_valid()
+        constancia_valida = constancia_form.is_valid()
+        if participante_valido and constancia_valida:
+            try:
+                with transaction.atomic():
+                    participante_form.save()
+                    constancia = constancia_form.save(commit=False)
+                    # Cambiar el nombre del evento no renombra cursos de otras constancias.
+                    nombre_curso = constancia_form.cleaned_data['curso_nombre']
+                    curso = Curso.objects.filter(nombre=nombre_curso).order_by('pk').first()
+                    constancia.curso = curso or Curso.objects.create(nombre=nombre_curso)
+                    constancia.es_webinar = constancia.tipo in ('webinar', 'teorica')
+                    constancia.save()
+            except IntegrityError:
+                constancia_form.add_error(
+                    None,
+                    "No se guardaron los cambios. Revisa que el correo, el código de verificación "
+                    "y la combinación de participante, curso y fecha no estén repetidos.",
+                )
+            else:
+                messages.success(request, 'Cambios guardados. El PDF de la constancia ya utiliza los datos corregidos.')
+                return redirect('users:historial_constancias')
+
+    return render(request, 'users/editar_constancia.html', {
+        'constancia': constancia,
+        'participante_form': participante_form,
+        'constancia_form': constancia_form,
+    })
 
 
 @login_required
@@ -684,7 +726,6 @@ def webinar_paso2_previsualizar_view(request):
 
     
 
-from django.db import transaction
 from .models import Participante, Curso, Constancia
 from .models import Participante, Curso, Constancia, Evaluador
 
@@ -838,7 +879,10 @@ def _generar_pdf_bytes(constancia):
         firma_e_url = _imagen_a_base64(constancia.firma_especialista.firma_digital, transparente=True)
 
     # 3. Formateo de Fechas
-    duracion_formateada = f"{int(constancia.duracion_en_horas):02d}" if constancia.duracion_en_horas else "00"
+    horas = constancia.duracion_en_horas or 0
+    duracion_formateada = (
+        f"{int(horas):02d}" if horas == int(horas) else f"{horas:.1f}".replace('.', ',')
+    )
 
     # 4. Preparar Contexto para el HTML
     context = {

@@ -26,6 +26,7 @@ urlpatterns = [
 
     path('constancias/crear-lote/', views.crear_lote_constancias_view, name='crear_lote'),
     path('constancia/<int:pk>/pdf/', views.generar_pdf_constancia_view, name='generar_pdf'),
+    path('constancia/<int:pk>/editar/', views.editar_constancia_view, name='editar_constancia'),
 
     path('historial/', views.historial_constancias_view, name='historial_constancias'),
 

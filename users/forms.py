@@ -1,5 +1,8 @@
 # users/forms.py
 from django import forms
+from datetime import date
+from decimal import Decimal
+import re
 from django.contrib.auth.forms import UserCreationForm
 from .models import Evaluador, Curso, Participante,Institucion,Constancia,EncuestaRespuesta
 
@@ -38,6 +41,89 @@ class InstitucionForm(forms.ModelForm):
     class Meta:
         model = Institucion
         fields = ['nombre', 'ubicacion']
+
+class EditarConstanciaForm(forms.ModelForm):
+    curso_nombre = forms.CharField(label="Nombre del curso o evento", max_length=255)
+    fechas_evento = forms.CharField(
+        label="Días de la capacitación",
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 3, 'placeholder': '2026-09-08, 2026-09-10'}),
+        help_text=(
+            "Para indicar varios días, escribe las fechas como AAAA-MM-DD, separadas "
+            "por comas o por saltos de línea. La primera y la última deben coincidir "
+            "con las fechas de inicio y término. Si lo dejas vacío, el PDF mostrará "
+            "la fecha de término."
+        ),
+    )
+    duracion_en_horas = forms.DecimalField(
+        label="Duración (horas)", max_digits=4, decimal_places=1,
+        min_value=Decimal('0.1'),
+        widget=forms.NumberInput(attrs={'step': '0.1'}),
+    )
+
+    class Meta:
+        model = Constancia
+        fields = [
+            'curso_nombre', 'tipo', 'fecha_inicio', 'fecha_termino',
+            'fechas_evento', 'duracion_en_horas', 'firma_gerente',
+            'firma_especialista', 'fecha_vencimiento', 'codigo_verificacion',
+        ]
+        widgets = {
+            campo: forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date'})
+            for campo in ('fecha_inicio', 'fecha_termino', 'fecha_vencimiento')
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['codigo_verificacion'].required = True
+        if self.instance.pk:
+            self.initial['curso_nombre'] = self.instance.curso.nombre
+            self.initial['fechas_evento'] = '\n'.join(self.instance.fechas_evento or [])
+
+    def clean_fechas_evento(self):
+        texto = self.cleaned_data['fechas_evento']
+        if not texto:
+            return []
+        try:
+            fechas = sorted({
+                date.fromisoformat(valor).isoformat()
+                for valor in re.split(r'[,;\s]+', texto) if valor
+            })
+        except ValueError:
+            raise forms.ValidationError(
+                "Escribe fechas válidas con el formato AAAA-MM-DD, por ejemplo 2026-09-08."
+            )
+        if not fechas:
+            raise forms.ValidationError("Escribe al menos una fecha o deja el campo vacío.")
+        return fechas
+
+    def clean(self):
+        datos = super().clean()
+        inicio = datos.get('fecha_inicio')
+        termino = datos.get('fecha_termino')
+        fechas = datos.get('fechas_evento')
+        vencimiento = datos.get('fecha_vencimiento')
+        if inicio and termino and termino < inicio:
+            self.add_error('fecha_termino', "La fecha de término no puede ser anterior al inicio.")
+        if fechas and inicio and termino:
+            if fechas[0] != inicio.isoformat() or fechas[-1] != termino.isoformat():
+                self.add_error(
+                    'fechas_evento',
+                    "La primera y la última fecha deben coincidir con el inicio y término del evento.",
+                )
+        if vencimiento and termino and vencimiento < termino:
+            self.add_error('fecha_vencimiento', "El vencimiento no puede ser anterior al término del evento.")
+        if inicio and datos.get('curso_nombre') and self.instance.participante_id:
+            repetida = Constancia.objects.filter(
+                participante_id=self.instance.participante_id,
+                curso__nombre=datos['curso_nombre'],
+                fecha_inicio=inicio,
+            ).exclude(pk=self.instance.pk)
+            if repetida.exists():
+                raise forms.ValidationError(
+                    "Este participante ya tiene una constancia para ese curso y fecha de inicio."
+                )
+        return datos
 
 class LoteConstanciaForm(forms.Form):
     # Campo para seleccionar un solo curso

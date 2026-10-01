@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="bg-white p-6 sm:p-8 rounded-xl shadow-md border border-gray-200 max-w-4xl mx-auto">
+    <h2 class="text-3xl font-bold text-gray-800 mb-2">Editar constancia</h2>
+    <p class="text-gray-600 mb-6">Corrige los datos y guarda los cambios antes de volver a generar el PDF.</p>
+
+    <form method="post">
+        {% csrf_token %}
+        {% for error in participante_form.non_field_errors %}
+            <p role="alert" class="text-red-600 mb-4">{{ error }}</p>
+        {% endfor %}
+        {% for error in constancia_form.non_field_errors %}
+            <p role="alert" class="text-red-600 mb-4">{{ error }}</p>
+        {% endfor %}
+
+        <fieldset class="mb-8">
+            <legend class="text-xl font-bold text-gray-800 mb-2">Datos del participante</legend>
+            <p class="text-sm text-gray-600 mb-4">Los cambios de nombre, apellidos, correo, título e institución se aplican al participante y a todas sus constancias.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {% for field in participante_form %}
+                    {% include 'users/includes/campo_editar_constancia.html' %}
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend class="text-xl font-bold text-gray-800 mb-2">Datos de esta constancia</legend>
+            <p class="text-sm text-gray-600 mb-4">Los cambios del evento y los firmantes se aplican únicamente a esta constancia.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {% for field in constancia_form %}
+                    {% include 'users/includes/campo_editar_constancia.html' %}
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <div class="flex flex-col sm:flex-row gap-4 mt-8">
+            <button type="submit" class="bg-empresa-green text-white font-bold py-3 px-6 rounded-lg hover:bg-opacity-90 transition">Guardar cambios</button>
+            <a href="{% url 'users:historial_constancias' %}" class="text-center border border-gray-300 text-gray-700 font-bold py-3 px-6 rounded-lg hover:bg-gray-50 transition">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock content %}

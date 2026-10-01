@@ -25,11 +25,13 @@
     <form method="post" id="batch-form">
         {% csrf_token %}
 
-        <div id="action-bar" class="hidden bg-gray-50 p-4 rounded-lg my-4 items-center gap-4 border border-gray-200 sticky top-4 z-30 shadow-sm">
+        <div id="action-bar" class="hidden flex-wrap bg-gray-50 p-4 rounded-lg my-4 items-center gap-4 border border-gray-200 sticky top-4 z-30 shadow-sm">
             <input type="checkbox" id="select-all" class="h-5 w-5 rounded text-empresa-green">
             <span id="selection-count" class="font-bold text-gray-700 flex-1"></span>
             
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
+                <a id="edit-selected" data-url-template="{% url 'users:editar_constancia' 0 %}"
+                   class="hidden bg-empresa-green text-white font-bold py-2 px-4 rounded-lg hover:bg-opacity-90">Editar</a>
                 <button type="submit" formaction="{% url 'users:descargar_constancias_zip' %}" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -46,6 +48,7 @@
                     Eliminar
                 </button>
             </div>
+            <p id="edit-selection-help" class="hidden text-sm text-gray-600 w-full">Para editar, selecciona una sola constancia.</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-6">
@@ -57,13 +60,14 @@
                         <h3 class="font-bold text-gray-800">{{ constancia.participante.nombre_completo }}</h3>
                         <p class="text-xs text-blue-600">{{ constancia.participante.email }}</p>
                     </div>
-                    <input type="checkbox" name="constancia_ids" value="{{ constancia.pk }}" class="h-6 w-6 rounded border-gray-300 text-empresa-green constancia-checkbox">
+                    <input type="checkbox" name="constancia_ids" value="{{ constancia.pk }}" aria-label="Seleccionar constancia de {{ constancia.participante.nombre_completo }}" class="h-6 w-6 rounded border-gray-300 text-empresa-green constancia-checkbox">
                 </div>
                 <div class="mt-4">
                     <p class="text-xs text-gray-500">Curso:</p>
                     <p class="text-sm font-semibold text-gray-700">{{ constancia.curso.nombre }}</p>
                 </div>
                 <div class="mt-4 flex gap-2">
+                    <a href="{% url 'users:editar_constancia' constancia.pk %}" class="flex-1 bg-empresa-green text-white text-center py-2 rounded-lg font-bold hover:bg-opacity-90 transition">Editar</a>
                     <a href="{% url 'users:generar_pdf' constancia.pk %}" class="flex-1 bg-gray-100 text-gray-700 text-center py-2 rounded-lg font-bold hover:bg-gray-200 transition">Ver PDF</a>
                 </div>
             </div>
@@ -103,6 +107,8 @@
     const actionBar = document.getElementById('action-bar');
     const selectionCount = document.getElementById('selection-count');
     const batchForm = document.getElementById('batch-form');
+    const editSelected = document.getElementById('edit-selected');
+    const editSelectionHelp = document.getElementById('edit-selection-help');
 
     let selectedIds = JSON.parse(localStorage.getItem('selected_constancias')) || [];
 
@@ -145,6 +151,13 @@
 
     function updateActionBar() {
         const totalCount = selectedIds.length;
+        editSelected.classList.toggle('hidden', totalCount !== 1);
+        editSelectionHelp.classList.toggle('hidden', totalCount <= 1);
+        if (totalCount === 1) {
+            editSelected.href = editSelected.dataset.urlTemplate.replace('/0/', `/${encodeURIComponent(selectedIds[0])}/`);
+        } else {
+            editSelected.removeAttribute('href');
+        }
         if (totalCount > 0) {
             actionBar.classList.replace('hidden', 'flex');
             selectionCount.textContent = `${totalCount} constancia(s) seleccionada(s)`;
