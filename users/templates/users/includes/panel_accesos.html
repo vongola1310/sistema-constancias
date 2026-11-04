@@ -1,0 +1,79 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/accesos.css' %}">
+<section id="accesos" class="access-panel" aria-labelledby="access-title">
+    <header class="access-header">
+        <div>
+            <span class="access-eyebrow">Administración</span>
+            <h2 id="access-title">Accesos de usuarios</h2>
+            <p>Controla quién puede crear constancias de cursos, webinars y capacitaciones por calificación.</p>
+        </div>
+        <a class="access-primary" href="{% url 'users:crear_evaluador' %}">+ Nuevo usuario</a>
+    </header>
+    <dl class="access-stats">
+        <div><dt>Usuarios registrados</dt><dd>{{ accesos_resumen.total }}</dd></div>
+        <div><dt>Con permiso</dt><dd>{{ accesos_resumen.autorizados }}</dd></div>
+        <div><dt>Sin permiso</dt><dd>{{ accesos_resumen.sin_permiso }}</dd></div>
+        <div><dt>Cuentas inactivas</dt><dd>{{ accesos_resumen.inactivos }}</dd></div>
+    </dl>
+    <form class="access-filters" action="{% url 'users:dashboard' %}#accesos" method="get" role="search" aria-label="Buscar usuarios">
+        <div class="access-search">
+            <label for="access-query">Buscar usuario</label>
+            <input id="access-query" type="search" name="acceso_q" value="{{ acceso_q }}" maxlength="150" placeholder="Nombre, usuario o correo">
+        </div>
+        <div>
+            <label for="access-status">Estado del acceso</label>
+            <select id="access-status" name="acceso_estado">
+                <option value="">Todos los usuarios</option>
+                <option value="autorizados" {% if acceso_estado == 'autorizados' %}selected{% endif %}>Con permiso para crear</option>
+                <option value="sin_permiso" {% if acceso_estado == 'sin_permiso' %}selected{% endif %}>Sin permiso para crear</option>
+                <option value="inactivos" {% if acceso_estado == 'inactivos' %}selected{% endif %}>Cuentas inactivas</option>
+            </select>
+        </div>
+        <button class="access-secondary" type="submit">Buscar</button>
+        {% if acceso_q or acceso_estado %}<a class="access-reset" href="{% url 'users:dashboard' %}#accesos">Limpiar</a>{% endif %}
+    </form>
+    <p class="access-help">Desactivar una cuenta impide iniciar sesión. Quitar el permiso de creación conserva su acceso al historial. Guarda los cambios de cada usuario para aplicarlos.</p>
+    <div class="access-list" aria-label="Usuarios y permisos">
+        {% for cuenta in accesos_pagina %}
+        <article class="access-row" aria-labelledby="access-user-{{ cuenta.pk }}">
+            <div class="access-identity">
+                <span class="access-avatar" aria-hidden="true">{{ cuenta.get_full_name|default:cuenta.username|first|upper }}</span>
+                <div>
+                    <h3 id="access-user-{{ cuenta.pk }}">{{ cuenta.get_full_name|default:cuenta.username }}{% if cuenta.pk == user.pk %} <span class="access-self">(Tú)</span>{% endif %}</h3>
+                    <p>@{{ cuenta.username }}{% if cuenta.email %} · {{ cuenta.email }}{% endif %}</p>
+                    <span class="access-badge {% if not cuenta.is_active %}access-inactive{% elif cuenta.tiene_acceso_constancias %}access-enabled{% else %}access-disabled{% endif %}">{% if not cuenta.is_active %}Cuenta inactiva{% elif cuenta.is_superuser %}Administrador{% elif cuenta.tiene_acceso_constancias %}Puede crear constancias{% else %}Sin permiso de creación{% endif %}</span>
+                </div>
+            </div>
+            {% if cuenta.is_superuser %}
+                <p class="access-protected">Cuenta administradora protegida</p>
+            {% else %}
+            <form class="access-controls" method="post" action="{% url 'users:actualizar_acceso' cuenta.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="estado_anterior" value="{{ cuenta.is_active|yesno:'1,0' }}:{{ cuenta.puede_crear_constancias|yesno:'1,0' }}">
+                <input type="hidden" name="acceso_q" value="{{ acceso_q }}">
+                <input type="hidden" name="acceso_estado" value="{{ acceso_estado }}">
+                <input type="hidden" name="acceso_pagina" value="{{ acceso_pagina }}">
+                <label class="access-toggle" for="access-active-{{ cuenta.pk }}">
+                    <input id="access-active-{{ cuenta.pk }}" type="checkbox" name="is_active" {% if cuenta.is_active %}checked{% endif %} aria-label="Cuenta activa de {{ cuenta.username }}">
+                    Cuenta activa
+                </label>
+                <label class="access-toggle" for="access-create-{{ cuenta.pk }}">
+                    <input id="access-create-{{ cuenta.pk }}" type="checkbox" name="puede_crear_constancias" {% if cuenta.puede_crear_constancias %}checked{% endif %} aria-label="Crear constancias: {{ cuenta.username }}">
+                    Crear constancias
+                </label>
+                <button class="access-secondary" type="submit" aria-label="Guardar acceso de {{ cuenta.username }}">Guardar</button>
+            </form>
+            {% endif %}
+        </article>
+        {% empty %}
+        <div class="access-empty"><h3>No se encontraron usuarios</h3><p>Prueba con otro nombre, correo o estado de acceso.</p></div>
+        {% endfor %}
+    </div>
+    <footer class="access-footer">
+        <span>{{ accesos_pagina.paginator.count }} usuario{{ accesos_pagina.paginator.count|pluralize:'s' }} · Página {{ accesos_pagina.number }} de {{ accesos_pagina.paginator.num_pages }}</span>
+        <nav aria-label="Paginación de usuarios">
+            {% if accesos_pagina.has_previous %}<a class="access-secondary" href="?{{ accesos_query }}&amp;acceso_pagina={{ accesos_pagina.previous_page_number }}#accesos">Anterior</a>{% endif %}
+            {% if accesos_pagina.has_next %}<a class="access-secondary" href="?{{ accesos_query }}&amp;acceso_pagina={{ accesos_pagina.next_page_number }}#accesos">Siguiente</a>{% endif %}
+        </nav>
+    </footer>
+</section>

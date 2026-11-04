@@ -45,6 +45,7 @@ from .models import (
 )
 from django.db.models import Q
 from django.db import IntegrityError, transaction
+from .accesos import administrador_required, creacion_constancias_required, contexto_accesos
 # --- VISTAS DE AUTENTICACIÓN Y PERFIL ---
 
 def login_view(request):
@@ -81,6 +82,7 @@ def dashboard_view(request):
         'user': request.user,
         'constancias_vencidas': constancias_vencidas,
         'constancias_por_vencer': constancias_por_vencer,
+        **contexto_accesos(request),
     }
     return render(request, 'users/dashboard.html', context)
 
@@ -107,14 +109,14 @@ def change_signature_view(request):
     return render(request, 'users/change_signature.html', {'form': form})
 
 # --- VISTAS DE CREACIÓN Y GESTIÓN DE OBJETOS ---
-@login_required
+@administrador_required
 def crear_evaluador_view(request):
     if request.method == 'POST':
         form = EvaluadorCreationForm(request.POST, request.FILES)
         if form.is_valid():
             new_user = form.save()
-            login(request, new_user)
-            return redirect('users:dashboard')
+            messages.success(request, f'Usuario {new_user} registrado. Puedes administrar su acceso desde el panel.')
+            return redirect(reverse('users:dashboard') + '#accesos')
     else:
         form = EvaluadorCreationForm()
     context = {'form': form}
@@ -183,7 +185,7 @@ def crear_institucion_view(request):
 
 # --- VISTAS DE CONSTANCIAS ---
 
-@login_required
+@creacion_constancias_required
 def crear_lote_constancias_view(request):
     if request.method == 'POST':
         form = LoteConstanciaForm(request.POST)
@@ -370,7 +372,7 @@ from django.contrib.auth.decorators import login_required
 MINUTOS_MINIMOS = 30  # Umbral para que un asistente califique
  
  
-@login_required
+@creacion_constancias_required
 def webinar_paso1_subir_view(request):
     if request.method == 'POST':
         form = WebinarStep1Form(request.POST, request.FILES)
@@ -488,7 +490,7 @@ def _mejor_nombre(guardado, nuevo):
         return nuevo
     return guardado
 
-@login_required
+@creacion_constancias_required
 def webinar_paso2_previsualizar_view(request):
     event_data = request.session.get('webinar_event_data')
     participantes = request.session.get('webinar_participantes_calificados')
@@ -1081,7 +1083,7 @@ def crear_participante_rapido_view(request):
     return JsonResponse({'ok': False, 'errores': errores}, status=400)
 
 
-@login_required
+@creacion_constancias_required
 def libro_paso1_subir_view(request):
     """Sube el libro de capacitaciones y detecta las sesiones (hojas)."""
     if request.method == 'POST':
@@ -1157,10 +1159,7 @@ def libro_paso1_subir_view(request):
     return render(request, 'users/libro_paso1_subir.html', {'form': form})
  
  
-@login_required
-
-
-@login_required
+@creacion_constancias_required
 def libro_paso2_seleccionar_view(request):
     """Elige qué sesiones procesar y genera las constancias."""
     sesiones = request.session.get('libro_sesiones')

@@ -1,0 +1,54 @@
+.access-panel { margin: 0 0 2rem; padding: 1.75rem; border: 1px solid #e0e8dc; border-radius: 1.5rem; background: #fff; box-shadow: 0 12px 32px #182d1310; scroll-margin-top: 1rem; }
+.access-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.access-eyebrow { color: #477932; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
+.access-header h2 { margin: .35rem 0; font-size: 1.6rem; font-weight: 750; color: #18251b; }
+.access-header p, .access-help, .access-footer { color: #59645c; font-size: .875rem; line-height: 1.6; }
+.access-primary, .access-secondary { display: inline-flex; justify-content: center; align-items: center; min-height: 44px; padding: .65rem 1rem; border-radius: .65rem; font-size: .85rem; font-weight: 700; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.access-primary { background: #357b28; color: #fff; border: 1px solid #357b28; }
+.access-primary:hover { background: #28611e; }
+.access-secondary { background: #fff; border: 1px solid #ccd8c9; color: #32472f; }
+.access-secondary:hover { background: #f0f6ed; border-color: #74c054; }
+.access-panel :is(a, button, input, select):focus-visible { outline: 3px solid #357b28; outline-offset: 3px; }
+.access-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 1.5rem 0; }
+.access-stats > div { padding: 1rem; border-radius: .8rem; background: #f3f7f0; }
+.access-stats dt { font-size: .8rem; color: #59645c; }
+.access-stats dd { margin-top: .25rem; font-size: 1.65rem; font-weight: 750; color: #243f1f; }
+.access-filters { display: flex; gap: .75rem; flex-wrap: wrap; align-items: flex-end; }
+.access-filters > div { min-width: 190px; }
+.access-search { flex: 1; }
+.access-filters label { display: block; font-size: .8rem; font-weight: 650; margin-bottom: .35rem; }
+.access-filters input, .access-filters select { width: 100%; min-height: 44px; padding: .65rem .8rem; border: 1px solid #ccd8c9; border-radius: .65rem; background: white; font-size: .9rem; }
+.access-reset { padding: .7rem; text-decoration: underline; font-size: .85rem; color: #426a35; }
+.access-help { margin: 1rem 0; }
+.access-list { border-top: 1px solid #e3e9e0; }
+.access-row { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1.1rem 0; border-bottom: 1px solid #e3e9e0; }
+.access-identity { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.access-identity > div { min-width: 0; overflow-wrap: anywhere; }
+.access-avatar { display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex-shrink: 0; border-radius: 50%; background: #e7f1df; color: #34552b; font-weight: 750; }
+.access-identity h3 { font-size: .95rem; font-weight: 700; }
+.access-identity p { margin: .2rem 0 .35rem; color: #647067; font-size: .8rem; }
+.access-self { font-size: .8rem; font-weight: 400; color: #647067; }
+.access-badge { display: inline-block; border-radius: 1rem; padding: .2rem .6rem; font-size: .72rem; font-weight: 650; }
+.access-enabled { background: #e8f4df; color: #35651e; }
+.access-disabled { background: #fff4dc; color: #815812; }
+.access-inactive { background: #f0f1f2; color: #5f6368; }
+.access-controls { display: flex; align-items: center; gap: 1rem; flex-shrink: 0; }
+.access-toggle { display: flex; align-items: center; gap: .5rem; min-height: 44px; font-size: .8rem; cursor: pointer; }
+.access-toggle input { width: 20px; height: 20px; accent-color: #357b28; cursor: pointer; }
+.access-protected { color: #647067; font-size: .8rem; }
+.access-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1rem; }
+.access-footer nav { display: flex; gap: .5rem; }
+.access-empty { padding: 2.5rem 1rem; text-align: center; color: #647067; }
+.access-empty h3 { font-weight: 700; margin-bottom: .4rem; color: #32472f; }
+@media (max-width: 1000px) { .access-row { flex-wrap: wrap; } .access-controls { margin-left: 54px; } }
+@media (max-width: 640px) {
+  .access-panel { padding: 1rem; border-radius: 1rem; }
+  .access-header { align-items: flex-start; flex-direction: column; }
+  .access-header h2 { font-size: 1.35rem; }
+  .access-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .access-stats > div { padding: .75rem; }
+  .access-filters > div { min-width: 100%; }
+  .access-controls { margin-left: 0; width: 100%; flex-wrap: wrap; gap: .5rem 1rem; }
+  .access-controls button { width: 100%; }
+  .access-footer { flex-wrap: wrap; }
+}

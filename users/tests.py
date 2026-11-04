@@ -320,7 +320,8 @@ class FechasExcelTests(SimpleTestCase):
 class ConstanciasCalificacionTests(TestCase):
     def setUp(self):
         self.evaluador = Evaluador.objects.create_user(
-            username='especialista', first_name='Firma', last_name='Prueba', es_gerente=True
+            username='especialista', first_name='Firma', last_name='Prueba', es_gerente=True,
+            puede_crear_constancias=True,
         )
         self.client.force_login(self.evaluador)
 

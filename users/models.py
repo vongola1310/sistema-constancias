@@ -10,6 +10,19 @@ class Evaluador(AbstractUser):
     foto = models.ImageField(upload_to='fotos/', null=True, blank=True, verbose_name="Foto de Perfil")
     firma_digital = models.ImageField(upload_to='firmas/', null=True, blank=True, verbose_name="Firma Digital (PNG)")
     es_gerente = models.BooleanField(default=False, verbose_name="¿Es el Gerente que firma por defecto?")
+    puede_crear_constancias = models.BooleanField(
+        default=False,
+        verbose_name="Puede crear constancias",
+        help_text="Permite generar constancias de cursos, webinars y capacitaciones por calificación.",
+    )
+
+    @property
+    def administra_accesos(self):
+        return self.is_active and self.is_superuser
+
+    @property
+    def tiene_acceso_constancias(self):
+        return self.is_active and (self.is_superuser or self.puede_crear_constancias)
 
     def __str__(self):
         return self.get_full_name() or self.username

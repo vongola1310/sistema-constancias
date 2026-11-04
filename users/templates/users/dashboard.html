@@ -92,6 +92,15 @@
     </div>
 </div>
 
+{% if user.administra_accesos %}
+    {% include 'users/includes/panel_accesos.html' %}
+{% elif not user.tiene_acceso_constancias %}
+    <div class="bg-white rounded-xl border border-gray-200 p-6 mb-8" role="status">
+        <h2 class="text-lg font-bold mb-2">Creación de constancias sin permiso</h2>
+        <p class="text-gray-600">Solicita a un administrador que habilite tu acceso para generar constancias. Puedes consultar el historial y descargar las existentes.</p>
+    </div>
+{% endif %}
+
 <!-- Alertas mejoradas -->
 <div class="space-y-6 mb-8">
     {% if constancias_por_vencer %}
@@ -223,6 +232,7 @@
         </div>
     </a>
     
+    {% if user.tiene_acceso_constancias %}
     <a href="{% url 'users:crear_lote' %}" class="glass-effect rounded-2xl p-6 shadow-xl card-hover animate-slide-up" style="animation-delay: 0.6s">
         <div class="flex flex-col items-center text-center space-y-4">
             <div class="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center icon-glow">
@@ -257,6 +267,7 @@
         </div>
     </a>
 
+    {% endif %}
     <a href="{% url 'users:historial_constancias' %}" class="glass-effect rounded-2xl p-6 shadow-xl card-hover animate-slide-up" style="animation-delay: 0.8s">
         <div class="flex flex-col items-center text-center space-y-4">
             <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center icon-glow">
@@ -273,6 +284,7 @@
             </div>
         </div>
     </a>
+    {% if user.tiene_acceso_constancias %}
         <a href="{% url 'users:libro_paso1' %}" class="glass-effect rounded-2xl p-6 shadow-xl card-hover animate-slide-up" style="animation-delay: 0.75s">
         <div class="flex flex-col items-center text-center space-y-4">
             <div class="w-16 h-16 bg-gradient-to-br from-teal-500 to-teal-600 rounded-2xl flex items-center justify-center icon-glow">
@@ -290,6 +302,7 @@
         </div>
     </a>
     
+    {% endif %}
     <a href="#" class="glass-effect rounded-2xl p-6 shadow-xl card-hover animate-slide-up opacity-75" style="animation-delay: 0.9s">
         <div class="flex flex-col items-center text-center space-y-4">
             <div class="w-16 h-16 bg-gradient-to-br from-gray-400 to-gray-500 rounded-2xl flex items-center justify-center">

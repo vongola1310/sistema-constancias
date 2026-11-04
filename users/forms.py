@@ -9,7 +9,7 @@ from .models import Evaluador, Curso, Participante,Institucion,Constancia,Encues
 class EvaluadorCreationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
         model = Evaluador
-        fields = UserCreationForm.Meta.fields + ('first_name', 'last_name', 'email', 'cargo', 'foto', 'firma_digital')
+        fields = UserCreationForm.Meta.fields + ('first_name', 'last_name', 'email', 'cargo', 'foto', 'firma_digital', 'puede_crear_constancias')
 
 class ProfilePhotoForm(forms.ModelForm):
     class Meta:

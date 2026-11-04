@@ -4,12 +4,12 @@ from .models import Evaluador, Curso, Participante, Constancia,Institucion,Encue
 
 @admin.register(Evaluador)
 class EvaluadorAdmin(UserAdmin):
-    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'es_gerente')
+    list_display = ('username', 'email', 'first_name', 'last_name', 'is_active', 'puede_crear_constancias', 'is_staff', 'es_gerente')
     fieldsets = UserAdmin.fieldsets + (
-        ('Campos Personalizados', {'fields': ('cargo', 'foto', 'firma_digital', 'es_gerente')}),
+        ('Campos Personalizados', {'fields': ('cargo', 'foto', 'firma_digital', 'es_gerente', 'puede_crear_constancias')}),
     )
     add_fieldsets = UserAdmin.add_fieldsets + (
-        ('Campos Personalizados', {'fields': ('cargo', 'foto', 'firma_digital', 'es_gerente')}),
+        ('Campos Personalizados', {'fields': ('cargo', 'foto', 'firma_digital', 'es_gerente', 'puede_crear_constancias')}),
     )
 
 @admin.register(Institucion)
@@ -31,6 +31,9 @@ class ParticipanteAdmin(admin.ModelAdmin):
 
 @admin.register(Constancia)
 class ConstanciaAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        return request.user.tiene_acceso_constancias and super().has_add_permission(request)
+
     list_display = ('participante', 'curso', 'fecha_inicio', 'fecha_termino', 'fecha_emision')
     search_fields = ('participante__nombre_completo', 'curso__nombre')
     list_filter = ('fecha_emision', 'curso', 'firma_gerente', 'firma_especialista')
