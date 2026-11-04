@@ -15,6 +15,18 @@ estado, recorrer páginas y guardar el acceso de cada cuenta.
 - Solo los administradores registran evaluadores desde la aplicación. El alta
   mantiene su sesión y permite autorizar la creación con una casilla; inicia
   desmarcada. El panel no concede roles administrativos ni elimina usuarios.
+- **Editar usuario:** abre un formulario para cambiar nombre de usuario, nombre,
+  apellidos, correo y cargo. Está disponible también para la propia cuenta y para
+  otras cuentas administradoras, conservando sus roles y permisos.
+- La nueva contraseña es opcional y requiere confirmación. Se valida su longitud
+  mínima de 8 caracteres y los validadores de Django (o sus validadores estándar
+  si la instalación no configura ninguno). Se guarda mediante `set_password`.
+  Dejar ambos campos vacíos conserva la clave actual. Al cambiarla se invalidan
+  las sesiones anteriores; si el administrador cambia su propia clave, conserva
+  la sesión desde la que hizo el cambio. No se muestran contraseñas ni hashes.
+- La edición detecta formularios desactualizados, rechaza nombres duplicados
+  incluso con distintas mayúsculas y no permite modificar permisos mediante
+  campos adicionales. No requiere una migración nueva.
 
 ## Aplicación a una instalación existente
 

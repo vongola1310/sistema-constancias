@@ -44,6 +44,8 @@
                     <span class="access-badge {% if not cuenta.is_active %}access-inactive{% elif cuenta.tiene_acceso_constancias %}access-enabled{% else %}access-disabled{% endif %}">{% if not cuenta.is_active %}Cuenta inactiva{% elif cuenta.is_superuser %}Administrador{% elif cuenta.tiene_acceso_constancias %}Puede crear constancias{% else %}Sin permiso de creación{% endif %}</span>
                 </div>
             </div>
+            <div class="access-row-actions">
+            <a class="access-secondary" href="{% url 'users:editar_usuario' cuenta.pk %}?{{ accesos_query }}&amp;acceso_pagina={{ acceso_pagina }}" aria-label="Editar usuario {{ cuenta.username }}">Editar usuario</a>
             {% if cuenta.is_superuser %}
                 <p class="access-protected">Cuenta administradora protegida</p>
             {% else %}
@@ -64,6 +66,7 @@
                 <button class="access-secondary" type="submit" aria-label="Guardar acceso de {{ cuenta.username }}">Guardar</button>
             </form>
             {% endif %}
+            </div>
         </article>
         {% empty %}
         <div class="access-empty"><h3>No se encontraron usuarios</h3><p>Prueba con otro nombre, correo o estado de acceso.</p></div>

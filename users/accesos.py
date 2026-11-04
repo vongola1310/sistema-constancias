@@ -1,16 +1,22 @@
+import json
 from functools import wraps
 from urllib.parse import urlencode
 
 from django import forms
 from django.contrib import messages
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
+from django.utils.crypto import constant_time_compare, salted_hmac
+from django.views.decorators.cache import never_cache
+from django.views.decorators.debug import sensitive_post_parameters
+from django.views.decorators.http import require_POST, require_http_methods
 
+from .acceso_forms import EditarUsuarioForm
 from .models import Evaluador
 
 
@@ -114,3 +120,58 @@ def actualizar_acceso_view(request, pk):
                       'creación de constancias sin permiso')
             messages.success(request, f'Acceso actualizado para {usuario}: {estado}.')
     return redirect(destino)
+
+
+def version_usuario(usuario):
+    # La firma detecta ediciones simultáneas sin enviar el hash de contraseña al navegador.
+    estado = [usuario.pk, usuario.username, usuario.first_name, usuario.last_name,
+              usuario.email, usuario.cargo, usuario.password]
+    return salted_hmac('users.editar_usuario', json.dumps(estado)).hexdigest()
+
+
+@sensitive_post_parameters('new_password1', 'new_password2')
+@never_cache
+@administrador_required
+@require_http_methods(['GET', 'POST'])
+def editar_usuario_view(request, pk):
+    destino = reverse('users:dashboard') + '?' + urlencode(filtros_accesos(request.GET)) + '#accesos'
+    guardado = False
+    with transaction.atomic():
+        usuarios = Evaluador.objects.select_for_update() if request.method == 'POST' else Evaluador.objects.all()
+        usuario = get_object_or_404(usuarios, pk=pk)
+        version = version_usuario(usuario)
+        nombre_original = str(usuario)
+        form = EditarUsuarioForm(
+            request.POST if request.method == 'POST' else None,
+            instance=usuario, initial={'version': version},
+        )
+        if request.method == 'POST' and form.is_valid():
+            if not constant_time_compare(form.cleaned_data['version'], version):
+                form.add_error(None, 'Esta cuenta cambió desde que abriste el formulario. Recarga la página y revisa los datos antes de guardar.')
+            else:
+                usuario = form.save(commit=False)
+                campos = list(EditarUsuarioForm.Meta.fields)
+                cambia_password = bool(form.cleaned_data.get('new_password1'))
+                if cambia_password:
+                    usuario.set_password(form.cleaned_data['new_password1'])
+                    campos.append('password')
+                try:
+                    # Savepoint para poder mostrar un conflicto de usuario sin una transacción rota.
+                    with transaction.atomic():
+                        usuario.save(update_fields=campos)
+                except IntegrityError:
+                    form.add_error('username', 'Ese nombre de usuario acaba de ser registrado. Elige otro.')
+                else:
+                    guardado = True
+    if guardado:
+        if cambia_password and usuario.pk == request.user.pk:
+            update_session_auth_hash(request, usuario)
+        mensaje = f'Usuario @{usuario.username} actualizado.'
+        if cambia_password:
+            mensaje += ' La nueva contraseña ya está activa.'
+        messages.success(request, mensaje)
+        return redirect(destino)
+    return render(request, 'users/editar_usuario.html', {
+        'form': form, 'cuenta': usuario, 'nombre_cuenta': nombre_original,
+        'volver_url': destino, 'es_cuenta_propia': usuario.pk == request.user.pk,
+    })

@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/accesos.css' %}">
+<section class="access-panel access-editor" aria-labelledby="edit-user-title">
+    <header class="access-header">
+        <div>
+            <span class="access-eyebrow">Administración de usuarios</span>
+            <h1 id="edit-user-title">Editar usuario</h1>
+            <p>{{ nombre_cuenta }}{% if es_cuenta_propia %} · Tu cuenta{% endif %}</p>
+        </div>
+        <a class="access-secondary" href="{{ volver_url }}">Volver a accesos</a>
+    </header>
+    <form method="post" class="access-edit-form">
+        {% csrf_token %}
+        {{ form.version }}
+        {% if form.errors %}
+        <div class="access-error-summary" role="alert">
+            <p>Revisa los campos marcados. No se guardaron los cambios.</p>
+            {{ form.non_field_errors }}
+            {% if form.version.errors %}<p>Recarga la página para actualizar el formulario.</p>{% endif %}
+        </div>
+        {% endif %}
+        <fieldset>
+            <legend>Datos del usuario</legend>
+            <p class="access-help">El nombre de usuario se utiliza para iniciar sesión.</p>
+            <div class="access-edit-grid">
+                {% for field in form.visible_fields %}
+                    {% if field.name != 'new_password1' and field.name != 'new_password2' %}
+                    <div class="access-edit-field">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span aria-hidden="true">*</span>{% endif %}</label>
+                        {{ field }}
+                        {% if field.help_text %}<p id="{{ field.auto_id }}_helptext" class="access-field-help">{{ field.help_text }}</p>{% endif %}
+                        {% if field.errors %}<div id="{{ field.auto_id }}_error" class="access-field-error">{{ field.errors }}</div>{% endif %}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </fieldset>
+        <fieldset>
+            <legend>Cambiar contraseña <span class="access-optional">Opcional</span></legend>
+            <p class="access-help">Deja ambos campos vacíos para conservar la contraseña actual.</p>
+            <div class="access-edit-grid">
+                {% for field in form.visible_fields %}
+                    {% if field.name == 'new_password1' or field.name == 'new_password2' %}
+                    <div class="access-edit-field">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<p id="{{ field.auto_id }}_helptext" class="access-field-help">{{ field.help_text }}</p>{% endif %}
+                        {% if field.errors %}<div id="{{ field.auto_id }}_error" class="access-field-error">{{ field.errors }}</div>{% endif %}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <p class="access-help">{% if es_cuenta_propia %}Al cambiar tu contraseña, esta sesión permanecerá abierta y tus otras sesiones se cerrarán.{% else %}Al cambiar la contraseña, el usuario deberá iniciar sesión de nuevo con la nueva clave.{% endif %}</p>
+        </fieldset>
+        <div class="access-edit-footer">
+            <a class="access-secondary" href="{{ volver_url }}">Cancelar</a>
+            <button class="access-primary" type="submit">Guardar cambios</button>
+        </div>
+    </form>
+</section>
+{% endblock %}

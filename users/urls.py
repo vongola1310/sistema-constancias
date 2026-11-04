@@ -2,7 +2,7 @@
 
 from django.urls import path
 from . import views
-from .accesos import actualizar_acceso_view
+from .accesos import actualizar_acceso_view, editar_usuario_view
 from django.contrib.auth import views as auth_views
 from django.shortcuts import redirect # Importante
 
@@ -12,6 +12,7 @@ urlpatterns = [
     path('', lambda request: redirect('users:dashboard'), name='index'),
     path('dashboard/', views.dashboard_view, name='dashboard'),
     path('accesos/<int:pk>/actualizar/', actualizar_acceso_view, name='actualizar_acceso'),
+    path('accesos/<int:pk>/editar/', editar_usuario_view, name='editar_usuario'),
     path('login/', views.login_view, name='login'),
    
     path('evaluadores/crear/', views.crear_evaluador_view, name='crear_evaluador'), # Debe decir name='crear_evaluador'
