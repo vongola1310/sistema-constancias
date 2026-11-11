@@ -46,6 +46,7 @@ from .models import (
 from django.db.models import Q
 from django.db import IntegrityError, transaction
 from .accesos import administrador_required, creacion_constancias_required, contexto_accesos
+from .libro_descargas import guardar_resultado_libro
 # --- VISTAS DE AUTENTICACIÓN Y PERFIL ---
 
 def login_view(request):
@@ -1171,8 +1172,9 @@ def libro_paso2_seleccionar_view(request):
 
     if request.method == 'POST':
         elegidas = request.POST.getlist('hojas')
-        if not elegidas:
-            messages.error(request, "Selecciona al menos una sesión.")
+        seleccionadas = [s for s in sesiones if s['hoja'] in elegidas and s['seleccionable']]
+        if not seleccionadas:
+            messages.error(request, "Selecciona al menos una sesión disponible.")
             return redirect('users:libro_paso2')
 
         firma_especialista = Evaluador.objects.filter(
@@ -1185,13 +1187,14 @@ def libro_paso2_seleccionar_view(request):
         repetidas = 0
         actualizadas = 0
         resumen = []
+        ids_lote = set()
+        creadas_lote = set()
+        actualizadas_lote = set()
+        sesiones_lote = []
 
         try:
             with transaction.atomic():
-                for s in sesiones:
-                    if s['hoja'] not in elegidas or not s['seleccionable']:
-                        continue
-
+                for s in seleccionadas:
                     # --- 1) Quitar repetidos dentro de la hoja ---
                     unicos = {}
                     for p in s['personas']:
@@ -1215,6 +1218,7 @@ def libro_paso2_seleccionar_view(request):
                     curso, _ = Curso.objects.get_or_create(nombre=s['curso'])
                     generadas = 0
                     fechas = s.get('fechas') or [s['fecha']]
+                    ids_sesion = set()
 
                     for email, p in unicos.items():
                         participante, creado = Participante.objects.get_or_create(
@@ -1246,6 +1250,7 @@ def libro_paso2_seleccionar_view(request):
                         )
                         if nueva:
                             generadas += 1
+                            creadas_lote.add(constancia.pk)
                         elif (
                             constancia.tipo == 'teorica'
                             and s.get('fechas')
@@ -1258,12 +1263,23 @@ def libro_paso2_seleccionar_view(request):
                             constancia.fecha_termino = fechas[-1]
                             constancia.save(update_fields=['fechas_evento', 'fecha_termino'])
                             actualizadas += 1
+                            actualizadas_lote.add(constancia.pk)
                         else:
                             omitidas += 1
+                        ids_lote.add(constancia.pk)
+                        ids_sesion.add(constancia.pk)
 
                     total += generadas
                     resumen.append(f"{s['curso']} ({generadas})")
+                    sesiones_lote.append({
+                        'curso': s['curso'], 'hoja': s['hoja'],
+                        'fechas': fechas, 'fecha_texto': formatear_fechas(fechas),
+                        'total': len(ids_sesion),
+                    })
 
+            lote_id = guardar_resultado_libro(
+                request, ids_lote, sesiones_lote, creadas_lote, actualizadas_lote,
+            )
             request.session.pop('libro_sesiones', None)
             request.session.pop('libro_config', None)
 
@@ -1276,7 +1292,7 @@ def libro_paso2_seleccionar_view(request):
             if repetidas:
                 texto += f" · {repetidas} fila(s) repetida(s) en el Excel"
             messages.success(request, texto)
-            return redirect('users:historial_constancias')
+            return redirect('users:libro_resultado', lote_id=lote_id)
 
         except Exception as e:
             messages.error(request, f"Error al generar las constancias: {str(e)}")

@@ -3,6 +3,7 @@
 from django.urls import path
 from . import views
 from .accesos import actualizar_acceso_view, editar_usuario_view
+from .libro_descargas import libro_resultado_view, descargar_libro_resultado_view
 from django.contrib.auth import views as auth_views
 from django.shortcuts import redirect # Importante
 
@@ -61,6 +62,8 @@ urlpatterns = [
     path('libro/paso-1-subir/', views.libro_paso1_subir_view, name='libro_paso1'),
 
     path('libro/paso-2-seleccionar/', views.libro_paso2_seleccionar_view, name='libro_paso2'),
+    path('libro/resultado/<uuid:lote_id>/', libro_resultado_view, name='libro_resultado'),
+    path('libro/resultado/<uuid:lote_id>/descargar/', descargar_libro_resultado_view, name='descargar_libro_resultado'),
     
 
 ]

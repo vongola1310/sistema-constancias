@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  .lr { max-width: 960px; margin: 1.5rem auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 20px; overflow: hidden; box-shadow: 0 8px 34px #0000000d; }
+  .lr-head { padding: 2rem; background: linear-gradient(150deg, #eef9f1, #fff); border-bottom: 1px solid #e5e7eb; }
+  .lr-kicker { color: #1a7a4a; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+  .lr h1 { margin: .5rem 0; font-size: 1.65rem; font-weight: 800; color: #111827; }
+  .lr p { line-height: 1.65; }
+  .lr-description { color: #586274; font-size: .9rem; }
+  .lr-body { padding: 1.5rem 2rem 2rem; }
+  .lr-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin-bottom: 1.5rem; }
+  .lr-stats div { padding: 1rem; background: #f5f8f5; border-radius: 12px; }
+  .lr-stats dt { color: #586274; font-size: .75rem; }
+  .lr-stats dd { font-size: 1.65rem; font-weight: 800; color: #1a7a4a; margin-top: .25rem; }
+  .lr-download { display: flex; align-items: center; justify-content: center; gap: .65rem; padding: 1rem 1.25rem; min-height: 48px; border-radius: 12px; background: #1a7a4a; color: #fff; font-size: .95rem; font-weight: 700; text-decoration: none; text-align: center; line-height: 1.5; }
+  .lr-download:hover { background: #166139; }
+  .lr-download svg { flex-shrink: 0; }
+  .lr a:focus-visible { outline: 3px solid #1a7a4a; outline-offset: 4px; }
+  .lr-note { font-size: .8rem; color: #586274; margin: .75rem 0 1.75rem; }
+  .lr h2 { font-size: 1.05rem; font-weight: 700; color: #111827; margin-bottom: .75rem; }
+  .lr-sessions { list-style: none; margin: 0; padding: 0; }
+  .lr-session { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 0; border-top: 1px solid #e5e7eb; }
+  .lr-session div { min-width: 0; overflow-wrap: anywhere; }
+  .lr-session h3 { font-weight: 700; font-size: .95rem; }
+  .lr-dates { color: #1a7a4a; font-size: .85rem; }
+  .lr-sheet { color: #6b7280; font-size: .75rem; }
+  .lr-count { background: #e3f4e9; color: #166139; padding: .4rem .7rem; border-radius: 20px; font-size: .75rem; font-weight: 650; white-space: nowrap; }
+  .lr-footer { display: flex; gap: 1rem; flex-wrap: wrap; padding-top: 1.5rem; margin-top: 1rem; border-top: 1px solid #e5e7eb; }
+  .lr-secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: .6rem 1rem; border: 1px solid #d1d5db; border-radius: 9px; color: #374151; font-size: .85rem; text-decoration: none; }
+  .lr-secondary:hover { background: #f3f4f6; }
+  .lr-error { background: #fff4f2; border: 1px solid #f1bbb5; color: #9a2b21; padding: 1rem; border-radius: 10px; margin-bottom: 1.5rem; font-size: .9rem; }
+  @media (max-width: 640px) {
+    .lr { margin: .5rem auto; }
+    .lr-head, .lr-body { padding: 1.25rem; }
+    .lr h1 { font-size: 1.4rem; }
+    .lr-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .lr-session { align-items: flex-start; flex-direction: column; gap: .5rem; }
+    .lr-footer { flex-direction: column; }
+  }
+</style>
+<section class="lr" aria-labelledby="resultado-title">
+  <header class="lr-head">
+    <span class="lr-kicker">Constancias por calificación · Resultado del paso 2</span>
+    <h1 id="resultado-title">{% if resultado.total %}Tus constancias están listas{% elif resultado %}Selección procesada{% else %}Resumen no disponible{% endif %}</h1>
+    <p class="lr-description">{% if resultado %}Descarga las constancias de las sesiones que seleccionaste, organizadas por curso y fecha de inicio.{% else %}Este resumen ya no está disponible en tu sesión. Puedes volver a procesar el libro o consultar las constancias guardadas en el historial.{% endif %}</p>
+  </header>
+  <div class="lr-body">
+    {% if error_descarga %}<p class="lr-error" role="alert">{{ error_descarga }}</p>{% endif %}
+    {% if resultado %}
+    <dl class="lr-stats">
+      <div><dt>Constancias en la selección</dt><dd>{{ resultado.total }}</dd></div>
+      <div><dt>Nuevas</dt><dd>{{ resultado.nuevas }}</dd></div>
+      <div><dt>Fechas actualizadas</dt><dd>{{ resultado.actualizadas }}</dd></div>
+      <div><dt>Ya existentes</dt><dd>{{ resultado.existentes }}</dd></div>
+    </dl>
+    {% if resultado.total %}
+    <a class="lr-download" href="{% url 'users:descargar_libro_resultado' lote_id %}">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4"/></svg>
+      Descargar constancias generadas de las fechas seleccionadas
+    </a>
+    <p class="lr-note">Un archivo ZIP con los PDF de esta selección, incluidas las constancias que ya existían. Puedes repetir la descarga sin volver a generarlas.</p>
+    {% else %}
+    <p class="lr-note" role="status">No hay constancias disponibles para descargar en esta selección. Revisa las calificaciones y los correos del libro.</p>
+    {% endif %}
+    <h2>Sesiones y fechas seleccionadas</h2>
+    <ul class="lr-sessions">
+      {% for sesion in resultado.sesiones %}
+      <li class="lr-session">
+        <div><h3>{{ sesion.curso }}</h3><p class="lr-dates">{{ sesion.fecha_texto }}</p><p class="lr-sheet">Hoja: {{ sesion.hoja }}</p></div>
+        <span class="lr-count">{{ sesion.total }} constancia{{ sesion.total|pluralize:'s' }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <nav class="lr-footer" aria-label="Continuar después de generar">
+      <a class="lr-secondary" href="{% url 'users:libro_paso1' %}">Procesar otro archivo</a>
+      <a class="lr-secondary" href="{% url 'users:historial_constancias' %}">Ver historial completo</a>
+      <a class="lr-secondary" href="{% url 'users:dashboard' %}">Volver al dashboard</a>
+    </nav>
+  </div>
+</section>
+{% endblock %}
