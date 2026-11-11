@@ -1,4 +1,5 @@
 import os
+import json
 import uuid
 from PIL import Image, ImageChops
 import io
@@ -47,6 +48,7 @@ from django.db.models import Q
 from django.db import IntegrityError, transaction
 from .accesos import administrador_required, creacion_constancias_required, contexto_accesos
 from .libro_descargas import guardar_resultado_libro
+from .libro_seleccion import preparar_seleccion_libro
 # --- VISTAS DE AUTENTICACIÓN Y PERFIL ---
 
 def login_view(request):
@@ -1149,6 +1151,8 @@ def libro_paso1_subir_view(request):
                 })
  
             request.session['libro_sesiones'] = serializado
+            request.session['libro_seleccion_token'] = str(uuid.uuid4())
+            request.session.pop('libro_seleccion_actual', None)
             request.session['libro_config'] = {
                 'calificacion_minima': minima,
                 'firma_especialista_id': form.cleaned_data['firma_especialista'].id,
@@ -1170,11 +1174,42 @@ def libro_paso2_seleccionar_view(request):
         messages.error(request, "No hay datos para procesar. Sube el archivo de nuevo.")
         return redirect('users:libro_paso1')
 
+    seleccion_token = request.session.get('libro_seleccion_token')
+    if not seleccion_token:
+        seleccion_token = str(uuid.uuid4())
+        request.session['libro_seleccion_token'] = seleccion_token
+    sesiones = preparar_seleccion_libro(sesiones, request.session.get('libro_seleccion_actual'))
+
     if request.method == 'POST':
+        if request.POST.get('seleccion_token') != seleccion_token:
+            messages.error(request, 'La vista previa cambió. Revisa las sesiones y los alumnos del archivo actual antes de generar.')
+            return redirect('users:libro_paso2')
         elegidas = request.POST.getlist('hojas')
+        try:
+            alumnos_enviados = (json.loads(request.POST['alumnos_json'])
+                               if 'alumnos_json' in request.POST else request.POST.getlist('alumnos'))
+            if not isinstance(alumnos_enviados, list) or not all(isinstance(a, str) for a in alumnos_enviados):
+                raise ValueError('Selección inválida')
+            alumnos = set(alumnos_enviados)
+        except (ValueError, TypeError):
+            messages.error(request, 'No se pudo leer la selección de alumnos. Revisa la vista previa e intenta de nuevo.')
+            return redirect('users:libro_paso2')
+        disponibles = {p['seleccion_id'] for s in sesiones for p in s['personas'] if p['habilitado']}
+        if not alumnos.issubset(disponibles):
+            messages.error(request, 'La selección contiene alumnos no disponibles. Revisa la calificación y el correo en la vista previa.')
+            return redirect('users:libro_paso2')
+        request.session['libro_seleccion_actual'] = {'hojas': elegidas, 'alumnos': sorted(alumnos)}
         seleccionadas = [s for s in sesiones if s['hoja'] in elegidas and s['seleccionable']]
         if not seleccionadas:
             messages.error(request, "Selecciona al menos una sesión disponible.")
+            return redirect('users:libro_paso2')
+        seleccionadas = [
+            {**s, 'personas': [p for p in s['personas'] if p['habilitado'] and p['seleccion_id'] in alumnos]}
+            for s in seleccionadas
+        ]
+        seleccionadas = [s for s in seleccionadas if s['personas']]
+        if not seleccionadas:
+            messages.error(request, 'Selecciona al menos un alumno de las sesiones elegidas para generar su constancia.')
             return redirect('users:libro_paso2')
 
         firma_especialista = Evaluador.objects.filter(
@@ -1282,6 +1317,8 @@ def libro_paso2_seleccionar_view(request):
             )
             request.session.pop('libro_sesiones', None)
             request.session.pop('libro_config', None)
+            request.session.pop('libro_seleccion_token', None)
+            request.session.pop('libro_seleccion_actual', None)
 
             texto = f"Se generaron {total} constancias de {len(resumen)} sesión(es): " \
                     + ", ".join(resumen)
@@ -1303,5 +1340,6 @@ def libro_paso2_seleccionar_view(request):
         'sesiones': sesiones,
         'total_disponibles': sum(s['aprobados'] for s in listas),
         'minima': config['calificacion_minima'],
+        'seleccion_token': seleccion_token,
     }
     return render(request, 'users/libro_paso2_seleccionar.html', context)

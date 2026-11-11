@@ -333,6 +333,14 @@ class ConstanciasCalificacionTests(TestCase):
             'firma_especialista': self.evaluador.pk,
         })
 
+    def generar(self):
+        vista = self.client.get(reverse('users:libro_paso2'))
+        return self.client.post(reverse('users:libro_paso2'), {
+            'hojas': ['8 sep'], 'seleccion_token': vista.context['seleccion_token'],
+            'alumnos': [p['seleccion_id'] for s in vista.context['sesiones']
+                        if s['hoja'] == '8 sep' for p in s['personas'] if p['habilitado']],
+        })
+
     def test_frase_con_tres_fechas_llega_completa_al_pdf(self):
         self.subir(libro_prueba(fecha_texto='13,14 y 15 de septiembre del 2026'))
         fechas = ['2026-09-13', '2026-09-14', '2026-09-15']
@@ -341,7 +349,7 @@ class ConstanciasCalificacionTests(TestCase):
             self.client.get(reverse('users:libro_paso2')),
             '13, 14 y 15 de septiembre de 2026',
         )
-        self.client.post(reverse('users:libro_paso2'), {'hojas': ['8 sep']})
+        self.generar()
         constancia = Constancia.objects.get()
         self.assertEqual(constancia.fechas_evento, fechas)
         self.assertEqual(constancia.fecha_inicio, date(2026, 9, 13))
@@ -359,7 +367,7 @@ class ConstanciasCalificacionTests(TestCase):
         sesion, = self.client.session['libro_sesiones']
         self.assertEqual(sesion['fechas'], ['2026-09-08', '2026-09-09', '2026-09-10'])
         self.assertContains(self.client.get(reverse('users:libro_paso2')), '8, 9 y 10 de septiembre de 2026')
-        respuesta = self.client.post(reverse('users:libro_paso2'), {'hojas': ['8 sep']})
+        respuesta = self.generar()
         self.assertEqual(respuesta.status_code, 302)
         constancia = Constancia.objects.get()
         self.assertEqual(constancia.fecha_inicio, date(2026, 9, 8))
@@ -373,7 +381,7 @@ class ConstanciasCalificacionTests(TestCase):
         self.assertIn('12 horas', texto)
         # Volver a subir el mismo evento conserva la prevención de duplicados.
         self.subir(libro_prueba())
-        self.client.post(reverse('users:libro_paso2'), {'hojas': ['8 sep']})
+        self.generar()
         self.assertEqual(Constancia.objects.count(), 1)
         # Las constancias anteriores, sin lista de días, conservan su fecha.
         constancia.fechas_evento = []
@@ -389,13 +397,13 @@ class ConstanciasCalificacionTests(TestCase):
 
     def test_recargar_excel_completa_fechas_sin_duplicar_constancia(self):
         self.subir(libro_prueba(dias=8))
-        self.client.post(reverse('users:libro_paso2'), {'hojas': ['8 sep']})
+        self.generar()
         constancia = Constancia.objects.get()
         constancia.fechas_evento = []
         constancia.save(update_fields=['fechas_evento'])
         codigo = constancia.codigo_verificacion
         self.subir(libro_prueba())
-        respuesta = self.client.post(reverse('users:libro_paso2'), {'hojas': ['8 sep']})
+        respuesta = self.generar()
         self.assertEqual(Constancia.objects.count(), 1)
         constancia.refresh_from_db()
         self.assertEqual(constancia.codigo_verificacion, codigo)
@@ -408,7 +416,7 @@ class ConstanciasCalificacionTests(TestCase):
 
     def test_pdf_de_envio_masivo_incluye_los_dias_exactos(self):
         self.subir(libro_prueba(dias='8 y 10'))
-        self.client.post(reverse('users:libro_paso2'), {'hojas': ['8 sep']})
+        self.generar()
         constancia = Constancia.objects.get()
         with self.settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend'):
             respuesta = self.client.post(reverse('users:enviar_masivo'), {

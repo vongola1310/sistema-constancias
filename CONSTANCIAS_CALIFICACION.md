@@ -4,6 +4,18 @@ Tras seleccionar las sesiones del paso 2 y pulsar **Generar Constancias**, apare
 un resumen de las sesiones y sus fechas exactas con el botón **Descargar
 constancias generadas de las fechas seleccionadas**.
 
+En **Ver y seleccionar alumnos**, cada alumno aprobado y con correo tiene una
+casilla. Inician marcados; cada sesión tiene **Seleccionar todos** y
+**Deseleccionar todos**. Para emitir una sola constancia, marca la sesión,
+deselecciona sus alumnos y marca únicamente a la persona deseada. El contador y
+el botón de generación muestran la selección. La elección es independiente por
+sesión, aunque el mismo alumno asista a varias fechas.
+
+El servidor exige una selección explícita de alumnos y vuelve a comprobar su
+elegibilidad. No marcar ninguno no genera constancias. Se conserva la selección
+si falla el guardado; subir otro archivo invalida las vistas previas anteriores.
+El ZIP contiene únicamente las constancias de los alumnos seleccionados.
+
 El ZIP incluye los PDF de las constancias procesadas en esa selección: nuevas,
 existentes y aquellas cuyas fechas se actualizaron. No busca todos los registros
 del mismo día ni incluye otras sesiones del Excel. Cada constancia aparece una

@@ -54,7 +54,6 @@
     align-items: flex-start;
     transition: border-color .15s, background .15s;
   }
-  .ses.ok { cursor: pointer; }
   .ses.ok:hover { background: #f8fdfa; border-color: #a7d9bf; }
   .ses.bloq { background: #fafafa; opacity: .75; }
   .ses input[type=checkbox] { margin-top: 4px; width: 17px; height: 17px; accent-color: #1a7a4a; }
@@ -94,6 +93,16 @@
   }
   .detalle td { padding: 5px 8px; font-size: 0.76rem; border-top: 1px solid #f3f4f6; }
   .detalle .no { color: #9ca3af; }
+  .alumno-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0; font-size: .78rem; }
+  .alumno-tools button { min-height: 36px; border: 1px solid #b6d5c5; border-radius: 7px; background: #fff; color: #166139; padding: 5px 10px; cursor: pointer; }
+  .alumno-tools button:hover { background: #eef8f2; }
+  .alumno-count { color: #586274; }
+  .alumno-table { overflow-x: auto; }
+  .alumno-table table { min-width: 520px; }
+  .alumno-check { display: inline-flex; align-items: center; min-height: 40px; min-width: 40px; justify-content: center; cursor: pointer; }
+  .alumno-motivo { display: block; font-size: .7rem; color: #6b7280; }
+  .lib :is(button, input, summary, a):focus-visible { outline: 3px solid #1a7a4a; outline-offset: 3px; }
+  .ses-title label { cursor: pointer; }
   .cal { font-weight: 700; }
   .cal.si { color: #065f46; }
   .cal.no { color: #b91c1c; }
@@ -129,11 +138,14 @@
 
 <form method="post" class="lib">
   {% csrf_token %}
+  <input type="hidden" name="seleccion_token" value="{{ seleccion_token }}">
+  <input type="hidden" name="alumnos_json" id="alumnos-json" disabled>
 
   <div class="lib-head">
     <div>
-      <h2>Selecciona las sesiones</h2>
+      <h2>Selecciona las sesiones y los alumnos</h2>
       <p>Se generará constancia a quien tenga <strong>{{ minima }} o más</strong> de calificación y correo registrado.</p>
+      <p style="margin-top:8px;">Para generar una sola constancia, marca la sesión, pulsa «Deseleccionar todos» en sus alumnos y elige únicamente a esa persona.</p>
       <p style="margin-top:8px;">Al terminar podrás descargar juntas las constancias de las fechas seleccionadas en un archivo ZIP.</p>
     </div>
     <div class="lib-total">
@@ -150,15 +162,15 @@
 
   <div class="lib-body">
     {% for s in sesiones %}
-    <label class="ses {% if s.seleccionable %}ok{% else %}bloq{% endif %}">
+    <section class="ses {% if s.seleccionable %}ok{% else %}bloq{% endif %}" aria-labelledby="ses-title-{{ s.seleccion_indice }}">
       {% if s.seleccionable %}
-        <input type="checkbox" name="hojas" value="{{ s.hoja }}" class="chk">
+        <input id="ses-{{ s.seleccion_indice }}" type="checkbox" name="hojas" value="{{ s.hoja }}" class="chk" {% if s.marcada %}checked{% endif %}>
       {% else %}
-        <input type="checkbox" disabled>
+        <input type="checkbox" disabled aria-label="Sesión no disponible: {{ s.curso }}">
       {% endif %}
 
       <div class="ses-main">
-        <div class="ses-title">{{ s.curso }}</div>
+        <h3 class="ses-title" id="ses-title-{{ s.seleccion_indice }}">{% if s.seleccionable %}<label for="ses-{{ s.seleccion_indice }}">{{ s.curso }}</label>{% else %}{{ s.curso }}{% endif %}</h3>
         <div class="ses-meta">
           Hoja "{{ s.hoja }}"
           {% if s.fecha %} · {{ s.fecha_texto|default:s.fecha }}{% endif %}
@@ -174,16 +186,31 @@
         </div>
 
         {% if s.personas %}
-        <details class="detalle">
-          <summary>Ver detalle de asistentes</summary>
+        <details class="detalle" {% if s.marcada %}open{% endif %}>
+          <summary>Ver y seleccionar alumnos</summary>
+          {% if s.seleccionable %}
+          <div class="alumno-tools">
+            <button type="button" class="alumnos-todos">Seleccionar todos</button>
+            <button type="button" class="alumnos-ninguno">Deseleccionar todos</button>
+            <span class="alumno-count" role="status" aria-live="polite"></span>
+          </div>
+          {% endif %}
+          <div class="alumno-table" role="region" aria-label="Alumnos de {{ s.curso }}" tabindex="0">
           <table>
             <thead>
-              <tr><th>Nombre</th><th>Correo</th><th>Calificación</th></tr>
+              <tr><th scope="col">Incluir</th><th scope="col">Nombre</th><th scope="col">Correo</th><th scope="col">Calificación</th></tr>
             </thead>
             <tbody>
               {% for p in s.personas %}
               <tr>
-                <td>{{ p.nombre_completo }}</td>
+                <td><label class="alumno-check">
+                  {% if p.habilitado %}
+                    <input type="checkbox" name="alumnos" value="{{ p.seleccion_id }}" class="alumno-chk" data-correo="{{ p.correo_seleccion }}" {% if p.seleccionado %}checked{% endif %} aria-label="Incluir a {{ p.nombre_completo }} en {{ s.curso }}">
+                  {% else %}
+                    <input type="checkbox" disabled aria-label="No disponible: {{ p.nombre_completo }}">
+                  {% endif %}
+                </label></td>
+                <td>{{ p.nombre_completo }}{% if not p.email %}<span class="alumno-motivo">Sin correo</span>{% elif not p.aprueba %}<span class="alumno-motivo">No alcanza la calificación mínima</span>{% endif %}</td>
                 <td>{% if p.email %}{{ p.email }}{% else %}<span class="no">sin correo</span>{% endif %}</td>
                 <td>
                   {% if p.calificacion != None %}
@@ -196,6 +223,7 @@
               {% endfor %}
             </tbody>
           </table>
+          </div>
         </details>
         {% endif %}
       </div>
@@ -203,15 +231,15 @@
       <span class="ses-badge {% if s.seleccionable %}badge-listo{% else %}badge-pend{% endif %}">
         {% if s.seleccionable %}Listo{% elif s.estado == 'sin_calificar' %}Sin calificar{% elif not s.fecha %}Sin fecha{% else %}Nadie aprueba{% endif %}
       </span>
-    </label>
+    </section>
     {% endfor %}
   </div>
 
   <div class="lib-foot">
-    <span id="resumen">Ninguna sesión seleccionada.</span>
+    <span id="resumen" role="status" aria-live="polite">Ninguna sesión seleccionada.</span>
     <div style="display:flex;gap:16px;align-items:center;">
       <a href="{% url 'users:libro_paso1' %}" class="btn-back">Subir otro archivo</a>
-      <button type="submit" id="btn" class="btn-gen" disabled>Generar Constancias</button>
+      <button type="submit" id="btn" class="btn-gen">Generar Constancias</button>
     </div>
   </div>
 </form>
@@ -221,21 +249,68 @@
     const chks = Array.from(document.querySelectorAll('.chk'));
     const resumen = document.getElementById('resumen');
     const btn = document.getElementById('btn');
+    const sesiones = chks.map(check => ({
+      check,
+      tarjeta: check.closest('.ses'),
+      alumnos: Array.from(check.closest('.ses').querySelectorAll('.alumno-chk')),
+    }));
 
     function actualizar() {
-      const n = chks.filter(c => c.checked).length;
-      btn.disabled = n === 0;
-      resumen.innerHTML = n === 0
-        ? 'Ninguna sesión seleccionada.'
-        : '<b>' + n + '</b> sesión(es) seleccionada(s).';
+      let total = 0;
+      let n = 0;
+      sesiones.forEach(s => {
+        const elegidos = new Set(s.alumnos.filter(c => c.checked).map(c => c.dataset.correo)).size;
+        const count = s.tarjeta.querySelector('.alumno-count');
+        if (count) count.textContent = elegidos + ' alumno(s) marcado(s)' + (s.check.checked ? '' : ' · Activa la sesión para incluirlos');
+        if (s.check.checked && elegidos) { total += elegidos; n += 1; }
+      });
+      btn.disabled = total === 0;
+      btn.textContent = total === 1 ? 'Generar 1 constancia' : total > 1 ? 'Generar constancias seleccionadas (' + total + ')' : 'Generar Constancias';
+      resumen.textContent = total > 0
+        ? total + ' alumno(s) en ' + n + ' sesión(es) seleccionada(s).'
+        : chks.some(c => c.checked) ? 'Selecciona al menos un alumno.' : 'Ninguna sesión seleccionada.';
     }
 
-    chks.forEach(c => c.addEventListener('change', actualizar));
+    sesiones.forEach(s => {
+      s.check.addEventListener('change', () => {
+        const detalle = s.tarjeta.querySelector('.detalle');
+        if (s.check.checked && detalle) detalle.open = true;
+        actualizar();
+      });
+      s.alumnos.forEach(c => c.addEventListener('change', () => {
+        if (c.checked) s.check.checked = true;
+        actualizar();
+      }));
+      s.tarjeta.querySelector('.alumnos-todos')?.addEventListener('click', () => {
+        s.alumnos.forEach(c => { c.checked = true; });
+        s.check.checked = true;
+        actualizar();
+      });
+      s.tarjeta.querySelector('.alumnos-ninguno')?.addEventListener('click', () => {
+        s.alumnos.forEach(c => { c.checked = false; });
+        actualizar();
+      });
+    });
     document.getElementById('todas').addEventListener('click', () => {
-      chks.forEach(c => { c.checked = true; }); actualizar();
+      sesiones.forEach(s => { s.check.checked = true; s.alumnos.forEach(c => { c.checked = true; }); });
+      actualizar();
     });
     document.getElementById('ninguna').addEventListener('click', () => {
-      chks.forEach(c => { c.checked = false; }); actualizar();
+      sesiones.forEach(s => { s.check.checked = false; s.alumnos.forEach(c => { c.checked = false; }); });
+      actualizar();
+    });
+    // Un solo campo evita superar el límite de campos POST en libros grandes.
+    const compacta = document.getElementById('alumnos-json');
+    btn.form.addEventListener('submit', () => {
+      compacta.value = JSON.stringify(sesiones.filter(s => s.check.checked)
+        .flatMap(s => s.alumnos.filter(c => c.checked).map(c => c.value)));
+      compacta.disabled = false;
+      sesiones.forEach(s => s.alumnos.forEach(c => { c.disabled = true; }));
+    });
+    window.addEventListener('pageshow', () => {
+      compacta.disabled = true;
+      sesiones.forEach(s => s.alumnos.forEach(c => { c.disabled = false; }));
+      actualizar();
     });
     actualizar();
   })();

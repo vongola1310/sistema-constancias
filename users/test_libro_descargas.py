@@ -51,8 +51,16 @@ class LibroDescargasTests(TestCase):
         })
         self.assertRedirects(respuesta, reverse('users:libro_paso2'))
 
+    def seleccion(self, elegidas):
+        vista = self.client.get(reverse('users:libro_paso2'))
+        return {
+            'hojas': elegidas, 'seleccion_token': vista.context['seleccion_token'],
+            'alumnos': [p['seleccion_id'] for s in vista.context['sesiones']
+                        if s['hoja'] in elegidas for p in s['personas'] if p['habilitado']],
+        }
+
     def generar(self, elegidas=None):
-        respuesta = self.client.post(reverse('users:libro_paso2'), {'hojas': elegidas or ['Septiembre']})
+        respuesta = self.client.post(reverse('users:libro_paso2'), self.seleccion(elegidas or ['Septiembre']))
         self.assertEqual(respuesta.status_code, 302)
         resultado = self.client.get(respuesta.url)
         self.assertEqual(resultado.status_code, 200)
@@ -230,8 +238,9 @@ class LibroDescargasTests(TestCase):
 
     def test_fallo_al_guardar_no_publica_resultado_y_revierte_datos(self):
         self.subir()
+        seleccion = self.seleccion(['Septiembre'])
         with patch.object(Constancia, 'save', side_effect=IntegrityError('Error simulado')):
-            respuesta = self.client.post(reverse('users:libro_paso2'), {'hojas': ['Septiembre']})
+            respuesta = self.client.post(reverse('users:libro_paso2'), seleccion)
         self.assertRedirects(respuesta, reverse('users:libro_paso2'))
         self.assertFalse(Constancia.objects.exists())
         self.assertFalse(self.client.session.get(RESULTADOS_SESSION_KEY))
@@ -240,7 +249,7 @@ class LibroDescargasTests(TestCase):
     def test_seleccion_vacia_o_desconocida_conserva_el_paso_2(self):
         self.subir()
         for hojas in ([], ['No existe']):
-            respuesta = self.client.post(reverse('users:libro_paso2'), {'hojas': hojas})
+            respuesta = self.client.post(reverse('users:libro_paso2'), self.seleccion(hojas))
             self.assertRedirects(respuesta, reverse('users:libro_paso2'))
         self.assertFalse(Constancia.objects.exists())
         self.assertFalse(self.client.session.get(RESULTADOS_SESSION_KEY))
